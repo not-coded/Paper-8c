@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 18 May 2026 21:58:49 +0200
+Subject: [PATCH] Map Combat Test 8c Bukkit API
+
+
+diff --git a/src/main/java/org/bukkit/attribute/Attribute.java b/src/main/java/org/bukkit/attribute/Attribute.java
+index 13eac9ad2c1672051635d1c35cc49239252e7a61..cfd927edc3fc7f824f3b27a28e46069a950e8e8f 100644
+--- a/src/main/java/org/bukkit/attribute/Attribute.java
++++ b/src/main/java/org/bukkit/attribute/Attribute.java
+@@ -41,6 +41,10 @@ public enum Attribute implements Keyed {
+      * Attack speed of an Entity.
+      */
+     GENERIC_ATTACK_SPEED("generic.attack_speed"),
++    /**
++     * Attack reach of an Entity.
++     */
++    GENERIC_ATTACK_REACH("generic.attack_reach"),
+     /**
+      * Armor bonus of an Entity.
+      */
+diff --git a/src/main/java/org/bukkit/enchantments/Enchantment.java b/src/main/java/org/bukkit/enchantments/Enchantment.java
+index 799813410f40589ba1d7d530a47d87f609764705..3a498dee3c3187079cd1974ef8fb434009a590a1 100644
+--- a/src/main/java/org/bukkit/enchantments/Enchantment.java
++++ b/src/main/java/org/bukkit/enchantments/Enchantment.java
+@@ -103,6 +103,11 @@ public abstract class Enchantment implements Keyed {
+      */
+     public static final Enchantment SWEEPING_EDGE = new EnchantmentWrapper("sweeping");
+ 
++    /**
++     * Increases axe melee damage and shield disable time.
++     */
++    public static final Enchantment CLEAVING = new EnchantmentWrapper("cleaving");
++
+     /**
+      * Increases the rate at which you mine/dig
+      */
+diff --git a/src/main/java/org/bukkit/enchantments/EnchantmentTarget.java b/src/main/java/org/bukkit/enchantments/EnchantmentTarget.java
+index 635e07a6b0e255c4fdad58ba9d281c807af4e229..0e3df36cdd2ca7d9f1bf38611bf8bbab0e23351c 100644
+--- a/src/main/java/org/bukkit/enchantments/EnchantmentTarget.java
++++ b/src/main/java/org/bukkit/enchantments/EnchantmentTarget.java
+@@ -116,6 +116,36 @@ public enum EnchantmentTarget {
+         }
+     },
+ 
++    /**
++     * Allows the Enchantment to be placed on axes.
++     */
++    AXE {
++        @Override
++        public boolean includes(@NotNull Material item) {
++            return item.equals(Material.WOODEN_AXE)
++                || item.equals(Material.STONE_AXE)
++                || item.equals(Material.IRON_AXE)
++                || item.equals(Material.DIAMOND_AXE)
++                || item.equals(Material.GOLDEN_AXE)
++                || item.equals(Material.NETHERITE_AXE);
++        }
++    },
++
++    /**
++     * Allows the Enchantment to be placed on hoes.
++     */
++    HOE {
++        @Override
++        public boolean includes(@NotNull Material item) {
++            return item.equals(Material.WOODEN_HOE)
++                || item.equals(Material.STONE_HOE)
++                || item.equals(Material.IRON_HOE)
++                || item.equals(Material.DIAMOND_HOE)
++                || item.equals(Material.GOLDEN_HOE)
++                || item.equals(Material.NETHERITE_HOE);
++        }
++    },
++
+     /**
+      * Allows the Enchantment to be placed on tools (spades, pickaxe, axes)
+      */

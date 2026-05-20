@@ -1,0 +1,1324 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 18 May 2026 21:55:43 +0200
+Subject: [PATCH] Port Combat Test 8c
+
+
+diff --git a/src/main/java/net/minecraft/SharedConstants.java b/src/main/java/net/minecraft/SharedConstants.java
+index d5d6c545182b9b0b6aa5e52f1f9858450a17038e..24072f2e2e177ab8f747520989efaecd66859737 100644
+--- a/src/main/java/net/minecraft/SharedConstants.java
++++ b/src/main/java/net/minecraft/SharedConstants.java
+@@ -46,7 +46,7 @@ public class SharedConstants {
+     }
+ 
+     public static int b() {
+-        return 754;
++        return 803;
+     }
+ 
+     static {
+diff --git a/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java b/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java
+index 0055a96b51a1d38d31e129c417c97bcfc9d0b745..faebf3d4468b3d45ffb571cc9d4cd01b236fb3d1 100644
+--- a/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java
++++ b/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java
+@@ -33,6 +33,7 @@ import net.minecraft.world.entity.projectile.EntityPotion;
+ import net.minecraft.world.entity.projectile.EntitySmallFireball;
+ import net.minecraft.world.entity.projectile.EntitySnowball;
+ import net.minecraft.world.entity.projectile.EntitySpectralArrow;
++import net.minecraft.world.entity.projectile.EntityThrownTrident;
+ import net.minecraft.world.entity.projectile.EntityThrownExpBottle;
+ import net.minecraft.world.entity.projectile.EntityTippedArrow;
+ import net.minecraft.world.entity.projectile.IProjectile;
+@@ -125,6 +126,16 @@ public interface IDispenseBehavior {
+                 return entityspectralarrow;
+             }
+         }));
++        BlockDispenser.a((IMaterial) Items.TRIDENT, (IDispenseBehavior) (new DispenseBehaviorProjectile() {
++            @Override
++            protected IProjectile a(World world, IPosition iposition, ItemStack itemstack) {
++                EntityThrownTrident entitythrowntrident = new EntityThrownTrident(world, iposition.getX(), iposition.getY(), iposition.getZ());
++
++                entitythrowntrident.fromPlayer = EntityArrow.PickupStatus.ALLOWED;
++                entitythrowntrident.setTridentItem(itemstack);
++                return entitythrowntrident;
++            }
++        }));
+         BlockDispenser.a((IMaterial) Items.EGG, (IDispenseBehavior) (new DispenseBehaviorProjectile() {
+             @Override
+             protected IProjectile a(World world, IPosition iposition, ItemStack itemstack) {
+diff --git a/src/main/java/net/minecraft/network/protocol/game/PacketPlayInSettings.java b/src/main/java/net/minecraft/network/protocol/game/PacketPlayInSettings.java
+index f47cd43f96f61475bd1d5da11bdbc7c5e5f7e1bc..111dd4880b7e9d564da1824f2e3d1110542fc433 100644
+--- a/src/main/java/net/minecraft/network/protocol/game/PacketPlayInSettings.java
++++ b/src/main/java/net/minecraft/network/protocol/game/PacketPlayInSettings.java
+@@ -14,6 +14,7 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
+     private boolean d;
+     private int e;
+     private EnumMainHand f;
++    private boolean g;
+ 
+     public PacketPlayInSettings() {}
+ 
+@@ -25,6 +26,7 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
+         this.d = packetdataserializer.readBoolean();
+         this.e = packetdataserializer.readUnsignedByte();
+         this.f = (EnumMainHand) packetdataserializer.a(EnumMainHand.class);
++        this.g = packetdataserializer.readBoolean();
+     }
+ 
+     @Override
+@@ -35,6 +37,7 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
+         packetdataserializer.writeBoolean(this.d);
+         packetdataserializer.writeByte(this.e);
+         packetdataserializer.a((Enum) this.f);
++        packetdataserializer.writeBoolean(this.g);
+     }
+ 
+     public void a(PacketListenerPlayIn packetlistenerplayin) {
+@@ -59,4 +62,8 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
+     public EnumMainHand getMainHand() {
+         return this.f;
+     }
++
++    public boolean getUseShieldOnCrouch() {
++        return this.g;
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/protocol/game/PacketPlayInUseEntity.java b/src/main/java/net/minecraft/network/protocol/game/PacketPlayInUseEntity.java
+index ce63f3e5ac4d1a4311c0ebeb7574d999d45987d9..80917ea9003d81c7101c4f29461eaa0b9c7d915c 100644
+--- a/src/main/java/net/minecraft/network/protocol/game/PacketPlayInUseEntity.java
++++ b/src/main/java/net/minecraft/network/protocol/game/PacketPlayInUseEntity.java
+@@ -79,7 +79,7 @@ public class PacketPlayInUseEntity implements Packet<PacketListenerPlayIn> {
+ 
+     public static enum EnumEntityUseAction {
+ 
+-        INTERACT, ATTACK, INTERACT_AT;
++        INTERACT, ATTACK, INTERACT_AT, AIR_SWING;
+ 
+         private EnumEntityUseAction() {}
+     }
+diff --git a/src/main/java/net/minecraft/server/level/EntityPlayer.java b/src/main/java/net/minecraft/server/level/EntityPlayer.java
+index 75bcfb3a2b4a104aeebb2fe3298714b2e5b569d2..e4a1cc960e91faf584d5bca8baff938eabb45eea 100644
+--- a/src/main/java/net/minecraft/server/level/EntityPlayer.java
++++ b/src/main/java/net/minecraft/server/level/EntityPlayer.java
+@@ -1873,6 +1873,7 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
+ 
+     public String locale = null; // CraftBukkit - add, lowercase // Paper - default to null
+     public java.util.Locale adventure$locale = java.util.Locale.US; // Paper
++    protected boolean enableShieldOnCrouch = true;
+     public void a(PacketPlayInSettings packetplayinsettings) {
+         new PlayerClientOptionsChangeEvent(getBukkitEntity(), packetplayinsettings.locale, packetplayinsettings.viewDistance, com.destroystokyo.paper.ClientOption.ChatVisibility.valueOf(packetplayinsettings.getChatVisibility().name()), packetplayinsettings.hasChatColorsEnabled(), new com.destroystokyo.paper.PaperSkinParts(packetplayinsettings.getSkinParts()), packetplayinsettings.getMainHand() == EnumMainHand.LEFT ? MainHand.LEFT : MainHand.RIGHT).callEvent(); // Paper - settings event
+         // CraftBukkit start
+@@ -1896,6 +1897,12 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
+         this.bZ = packetplayinsettings.e();
+         this.getDataWatcher().set(EntityPlayer.bi, (byte) packetplayinsettings.f());
+         this.getDataWatcher().set(EntityPlayer.bj, (byte) (packetplayinsettings.getMainHand() == EnumMainHand.LEFT ? 0 : 1));
++        this.enableShieldOnCrouch = packetplayinsettings.getUseShieldOnCrouch();
++    }
++
++    @Override
++    public boolean hasEnabledShieldOnCrouch() {
++        return this.enableShieldOnCrouch;
+     }
+ 
+     public EnumChatVisibility getChatFlags() {
+diff --git a/src/main/java/net/minecraft/server/level/PlayerInteractManager.java b/src/main/java/net/minecraft/server/level/PlayerInteractManager.java
+index 87722285690d9d3370610e2a2eb809e0d1f497c9..6d03c7694e1cfc5fb5267c9867bd1a89605f7b68 100644
+--- a/src/main/java/net/minecraft/server/level/PlayerInteractManager.java
++++ b/src/main/java/net/minecraft/server/level/PlayerInteractManager.java
+@@ -159,6 +159,7 @@ public class PlayerInteractManager {
+     }
+ 
+     public void a(BlockPosition blockposition, PacketPlayInBlockDig.EnumPlayerDigType packetplayinblockdig_enumplayerdigtype, EnumDirection enumdirection, int i) {
++        this.player.resetAttackCooldown(false);
+         double d0 = this.player.locX() - ((double) blockposition.getX() + 0.5D);
+         double d1 = this.player.locY() - ((double) blockposition.getY() + 0.5D) + 1.5D;
+         double d2 = this.player.locZ() - ((double) blockposition.getZ() + 0.5D);
+diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+index 7044620e7fb5874913e7911adb606668a76ac0de..81281698b1bc5ae7679597c74c3377a81d2fb941 100644
+--- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+@@ -2336,9 +2336,11 @@ public class PlayerConnection implements PacketListenerPlayIn {
+         this.player.resetIdleTimer();
+         this.player.setSneaking(packetplayinuseentity.e());
+         if (entity != null) {
+-            double d0 = 36.0D;
++            double d0 = this.player.getCurrentAttackReach(0.5F) + 0.25D;
++            AxisAlignedBB axisalignedbb = entity.getBoundingBox();
++            Vec3D vec3d = new Vec3D(Math.max(axisalignedbb.minX, Math.min(this.player.locX(), axisalignedbb.maxX)), Math.max(axisalignedbb.minY, Math.min(this.player.getHeadY(), axisalignedbb.maxY)), Math.max(axisalignedbb.minZ, Math.min(this.player.locZ(), axisalignedbb.maxZ)));
+ 
+-            if (this.player.h(entity) < 36.0D) {
++            if (this.player.getEyePosition(1.0F).distanceSquared(vec3d) < d0 * d0) {
+                 EnumHand enumhand = packetplayinuseentity.c();
+                 ItemStack itemstack = enumhand != null ? this.player.b(enumhand).cloneItemStack() : ItemStack.b;
+                 Optional<EnumInteractionResult> optional = Optional.empty();
+@@ -2417,6 +2419,8 @@ public class PlayerConnection implements PacketListenerPlayIn {
+                         this.player.updateInventory(this.player.activeContainer);
+                     }
+                     // CraftBukkit end
++                } else if (packetplayinuseentity.b() == PacketPlayInUseEntity.EnumEntityUseAction.AIR_SWING) {
++                    this.player.attackAir();
+                 }
+ 
+                 if (optional.isPresent() && ((EnumInteractionResult) optional.get()).a()) {
+@@ -2429,6 +2433,9 @@ public class PlayerConnection implements PacketListenerPlayIn {
+         }
+         // Paper start - fire event
+         else {
++            if (!this.player.isSpectator() && packetplayinuseentity.b() == PacketPlayInUseEntity.EnumEntityUseAction.ATTACK) {
++                this.player.attackAir();
++            }
+             this.server.getPluginManager().callEvent(new com.destroystokyo.paper.event.player.PlayerUseUnknownEntityEvent(
+                 this.getPlayer(),
+                 packetplayinuseentity.getEntityId(),
+diff --git a/src/main/java/net/minecraft/world/entity/EntityInsentient.java b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
+index 6c024a5fdd290e5eb219e677e28718d663b72f25..c593b2ff14adb9026cdba5341a5990fd1aa78479 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityInsentient.java
++++ b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
+@@ -1574,7 +1574,7 @@ public abstract class EntityInsentient extends EntityLiving {
+         float f1 = (float) this.b(GenericAttributes.ATTACK_KNOCKBACK);
+ 
+         if (entity instanceof EntityLiving) {
+-            f += EnchantmentManager.a(this.getItemInMainHand(), ((EntityLiving) entity).getMonsterType());
++            f += EnchantmentManager.a(this.getItemInMainHand(), (EntityLiving) entity);
+             f1 += (float) EnchantmentManager.b((EntityLiving) this);
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..b2935ecd368694dc8f2de17075317d7fdeba4747 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -85,6 +85,7 @@ import net.minecraft.world.item.EnumAnimation;
+ import net.minecraft.world.item.Item;
+ import net.minecraft.world.item.ItemArmor;
+ import net.minecraft.world.item.ItemElytra;
++import net.minecraft.world.item.ItemShield;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.item.Items;
+ import net.minecraft.world.item.alchemy.PotionUtil;
+@@ -1485,7 +1486,7 @@ public abstract class EntityLiving extends Entity {
+                 Vec3D vec3d2 = vec3d.a(this.getPositionVector()).d();
+ 
+                 vec3d2 = new Vec3D(vec3d2.x, 0.0D, vec3d2.z);
+-                if (vec3d2.b(vec3d1) < 0.0D) {
++                if (vec3d2.b(vec3d1) * Math.PI < -0.8726646304130554D) {
+                     return true;
+                 }
+             }
+@@ -1666,13 +1667,13 @@ public abstract class EntityLiving extends Entity {
+     }
+     public void doKnockback(float f, double d0, double d1, Entity knockingBackEntity) {
+         // Paper end - add knockbacking entity parameter
+-        f = (float) ((double) f * (1.0D - this.b(GenericAttributes.KNOCKBACK_RESISTANCE)));
++        f = (float) ((double) f * (1.0D - Math.min(1.0D, this.b(GenericAttributes.KNOCKBACK_RESISTANCE) + (double) ItemShield.getShieldKnockbackResistanceValue(this.getBlockingItem()))));
+         if (f > 0.0F) {
+             this.impulse = true;
+             Vec3D vec3d = this.getMot();
+             Vec3D vec3d1 = (new Vec3D(d0, 0.0D, d1)).d().a((double) f);
+ 
+-            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.min(0.4D, vec3d.y / 2.0D + (double) f) : vec3d.y, vec3d.z / 2.0D - vec3d1.z);
++            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.max(0.4D, vec3d.y / 2.0D + (double) f) : vec3d.y, vec3d.z / 2.0D - vec3d1.z);
+ 
+             // Paper start - call EntityKnockbackByEntityEvent
+             Vec3D currentMot = this.getMot();
+@@ -1882,7 +1883,7 @@ public abstract class EntityLiving extends Entity {
+             Function<Double, Double> blocking = new Function<Double, Double>() {
+                 @Override
+                 public Double apply(Double f) {
+-                    return -((EntityLiving.this.applyBlockingModifier(damagesource)) ? f : 0.0);
++                    return -((EntityLiving.this.applyBlockingModifier(damagesource)) ? Math.min(f, (double) ItemShield.getShieldBlockDamageValue(EntityLiving.this.getBlockingItem())) : 0.0);
+                 }
+             };
+             float blockingModifier = blocking.apply((double) f).floatValue();
+@@ -3425,13 +3426,28 @@ public abstract class EntityLiving extends Entity {
+     }
+ 
+     public boolean isBlocking() {
++        return !this.getBlockingItem().isEmpty();
++    }
++
++    public ItemStack getBlockingItem() {
+         if (this.isHandRaised() && !this.activeItem.isEmpty()) {
+             Item item = this.activeItem.getItem();
+ 
+-            return item.d_(this.activeItem) != EnumAnimation.BLOCK ? false : item.e_(this.activeItem) - this.bd >= getShieldBlockingDelay(); // Paper - shieldBlockingDelay
+-        } else {
+-            return false;
++            if (item.d_(this.activeItem) == EnumAnimation.BLOCK && item.e_(this.activeItem) - this.bd >= getShieldBlockingDelay()) { // Paper - shieldBlockingDelay
++                return this.activeItem;
++            }
+         }
++
++        ItemStack itemstack = this.getEquipment(EnumItemSlot.OFFHAND);
++        return itemstack.getItem() instanceof ItemShield && (this.onGround || this.isPassenger()) && this.isSneaking() && this.hasEnabledShieldOnCrouch() && !this.isItemOnCooldown(itemstack) ? itemstack : ItemStack.b;
++    }
++
++    public boolean hasEnabledShieldOnCrouch() {
++        return true;
++    }
++
++    public boolean isItemOnCooldown(ItemStack itemstack) {
++        return false;
+     }
+ 
+     public boolean ee() {
+diff --git a/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java b/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java
+index 5e256a5feface72f9c34612fa5bbb760b7a23a46..901b4fb29ad008ab09aa1d6a9dfac8f9011ef068 100644
+--- a/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java
++++ b/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java
+@@ -12,7 +12,8 @@ public class GenericAttributes {
+     public static final AttributeBase FLYING_SPEED = a("generic.flying_speed", (new AttributeRanged("attribute.name.generic.flying_speed", 0.4000000059604645D, 0.0D, 1024.0D)).a(true));
+     public static final AttributeBase ATTACK_DAMAGE = a("generic.attack_damage", new AttributeRanged("attribute.name.generic.attack_damage", 2.0D, 0.0D, org.spigotmc.SpigotConfig.attackDamage));
+     public static final AttributeBase ATTACK_KNOCKBACK = a("generic.attack_knockback", new AttributeRanged("attribute.name.generic.attack_knockback", 0.0D, 0.0D, 5.0D));
+-    public static final AttributeBase ATTACK_SPEED = a("generic.attack_speed", (new AttributeRanged("attribute.name.generic.attack_speed", 4.0D, 0.0D, 1024.0D)).a(true));
++    public static final AttributeBase ATTACK_SPEED = a("generic.attack_speed", (new AttributeRanged("attribute.name.generic.attack_speed", 4.0D, 0.1D, 1024.0D)).a(true));
++    public static final AttributeBase ATTACK_REACH = a("generic.attack_reach", (new AttributeRanged("attribute.name.generic.attack_reach", 2.5D, 0.0D, 6.0D)).a(true));
+     public static final AttributeBase ARMOR = a("generic.armor", (new AttributeRanged("attribute.name.generic.armor", 0.0D, 0.0D, 30.0D)).a(true));
+     public static final AttributeBase ARMOR_TOUGHNESS = a("generic.armor_toughness", (new AttributeRanged("attribute.name.generic.armor_toughness", 0.0D, 0.0D, 20.0D)).a(true));
+     public static final AttributeBase LUCK = a("generic.luck", (new AttributeRanged("attribute.name.generic.luck", 0.0D, -1024.0D, 1024.0D)).a(true));
+diff --git a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
+index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6ee0f64c8c 100644
+--- a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
++++ b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
+@@ -165,6 +165,8 @@ public abstract class EntityHuman extends EntityLiving {
+     private GameProfile bJ; public final void setProfile(final GameProfile profile) { this.bJ = profile; } // Paper - OBFHELPER
+     private ItemStack bL;
+     private final ItemCooldown bM;
++    public int attackStrengthStartValue;
++    public boolean missedAttackRecovery;
+     @Nullable
+     public EntityFishingHook hookedFish;
+     // Paper start
+@@ -208,7 +210,7 @@ public abstract class EntityHuman extends EntityLiving {
+     }
+ 
+     public static AttributeProvider.Builder ep() {
+-        return EntityLiving.cL().a(GenericAttributes.ATTACK_DAMAGE, 1.0D).a(GenericAttributes.MOVEMENT_SPEED, 0.10000000149011612D).a(GenericAttributes.ATTACK_SPEED).a(GenericAttributes.LUCK);
++        return EntityLiving.cL().a(GenericAttributes.ATTACK_DAMAGE, 2.0D).a(GenericAttributes.MOVEMENT_SPEED, 0.10000000149011612D).a(GenericAttributes.ATTACK_SPEED).a(GenericAttributes.ATTACK_REACH).a(GenericAttributes.LUCK);
+     }
+ 
+     @Override
+@@ -1126,23 +1128,21 @@ public abstract class EntityHuman extends EntityLiving {
+ 
+     public void attack(Entity entity) {
+         if (entity.bL()) {
+-            if (!entity.t(this)) {
++            if (!entity.t(this) && this.isAttackAvailable(1.0F)) {
+                 float f = (float) this.b(GenericAttributes.ATTACK_DAMAGE);
+                 float f1;
+ 
+                 if (entity instanceof EntityLiving) {
+-                    f1 = EnchantmentManager.a(this.getItemInMainHand(), ((EntityLiving) entity).getMonsterType());
++                    f1 = EnchantmentManager.a(this.getItemInMainHand(), (EntityLiving) entity);
+                 } else {
+                     f1 = EnchantmentManager.a(this.getItemInMainHand(), EnumMonsterType.UNDEFINED);
+                 }
+ 
+                 float f2 = this.getAttackCooldown(0.5F);
+ 
+-                f *= 0.2F + f2 * f2 * 0.8F;
+-                f1 *= f2;
+                 // this.resetAttackCooldown(); // CraftBukkit - Moved to EntityLiving to reset the cooldown after the damage is dealt
+                 if (f > 0.0F || f1 > 0.0F) {
+-                    boolean flag = f2 > 0.9F;
++                    boolean flag = f2 > 1.95F;
+                     boolean flag1 = false;
+                     byte b0 = 0;
+                     int i = b0 + EnchantmentManager.b((EntityLiving) this);
+@@ -1166,11 +1166,7 @@ public abstract class EntityHuman extends EntityLiving {
+                     double d0 = (double) (this.A - this.z);
+ 
+                     if (flag && !flag2 && !flag1 && this.onGround && d0 < (double) this.dN()) {
+-                        ItemStack itemstack = this.b(EnumHand.MAIN_HAND);
+-
+-                        if (itemstack.getItem() instanceof ItemSword) {
+-                            flag3 = true;
+-                        }
++                        flag3 = this.checkSweepAttack();
+                     }
+ 
+                     float f3 = 0.0F;
+@@ -1212,24 +1208,7 @@ public abstract class EntityHuman extends EntityLiving {
+                         }
+ 
+                         if (flag3) {
+-                            float f4 = 1.0F + EnchantmentManager.a((EntityLiving) this) * f;
+-                            List<EntityLiving> list = this.world.a(EntityLiving.class, entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D));
+-                            Iterator iterator = list.iterator();
+-
+-                            while (iterator.hasNext()) {
+-                                EntityLiving entityliving = (EntityLiving) iterator.next();
+-
+-                                if (entityliving != this && entityliving != entity && !this.r(entityliving) && (!(entityliving instanceof EntityArmorStand) || !((EntityArmorStand) entityliving).isMarker()) && this.h((Entity) entityliving) < 9.0D) {
+-                                    // CraftBukkit start - Only apply knockback if the damage hits
+-                                    if (entityliving.damageEntity(DamageSource.playerAttack(this).sweep(), f4)) {
+-                                    entityliving.doKnockback(0.4F, (double) MathHelper.sin(this.yaw * 0.017453292F), (double) (-MathHelper.cos(this.yaw * 0.017453292F)), this); // Paper
+-                                    }
+-                                    // CraftBukkit end
+-                                }
+-                            }
+-
+-                            sendSoundEffect(this, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_PLAYER_ATTACK_SWEEP, this.getSoundCategory(), 1.0F, 1.0F); // Paper - send while respecting visibility
+-                            this.ex();
++                            this.sweepAttack(entity, f);
+                         }
+ 
+                         if (entity instanceof EntityPlayer && entity.velocityChanged) {
+@@ -1314,7 +1293,8 @@ public abstract class EntityHuman extends EntityLiving {
+                             }
+                         }
+ 
+-                        this.applyExhaustion(world.spigotConfig.combatExhaustion, EntityExhaustionEvent.ExhaustionReason.ATTACK); // CraftBukkit - EntityExhaustionEvent // Spigot - Change to use configurable value
++                        this.applyExhaustion(0.1F, EntityExhaustionEvent.ExhaustionReason.ATTACK); // CraftBukkit - EntityExhaustionEvent
++                        this.resetAttackCooldown(true);
+                     } else {
+                         sendSoundEffect(this, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_PLAYER_ATTACK_NODAMAGE, this.getSoundCategory(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                         if (flag4) {
+@@ -1337,6 +1317,34 @@ public abstract class EntityHuman extends EntityLiving {
+         this.attack(entityliving);
+     }
+ 
++    public void attackAir() {
++        if (this.isAttackAvailable(1.0F)) {
++            this.resetAttackCooldown(false);
++        }
++    }
++
++    protected boolean checkSweepAttack() {
++        ItemStack itemstack = this.b(EnumHand.MAIN_HAND);
++        return itemstack.getItem() instanceof ItemSword || EnchantmentManager.getCleavingEnchantmentLevel(this) > 0;
++    }
++
++    protected void sweepAttack(Entity entity, float f) {
++        float f4 = 1.0F + (float) EnchantmentManager.getCleavingEnchantmentLevel(this) * f;
++        List<EntityLiving> list = this.world.a(EntityLiving.class, entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D));
++        Iterator iterator = list.iterator();
++
++        while (iterator.hasNext()) {
++            EntityLiving entityliving = (EntityLiving) iterator.next();
++
++            if (entityliving != this && entityliving != entity && !this.r(entityliving) && (!(entityliving instanceof EntityArmorStand) || !((EntityArmorStand) entityliving).isMarker()) && this.h((Entity) entityliving) < 9.0D && entityliving.damageEntity(DamageSource.playerAttack(this).sweep(), f4)) {
++                entityliving.doKnockback(0.4F, (double) MathHelper.sin(this.yaw * 0.017453292F), (double) (-MathHelper.cos(this.yaw * 0.017453292F)), this); // Paper
++            }
++        }
++
++        sendSoundEffect(this, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_PLAYER_ATTACK_SWEEP, this.getSoundCategory(), 1.0F, 1.0F); // Paper - send while respecting visibility
++        this.ex();
++    }
++
+     public void p(boolean flag) {
+         float f = 0.25F + (float) EnchantmentManager.getDigSpeedEnchantmentLevel(this) * 0.05F;
+ 
+@@ -2119,15 +2127,29 @@ public abstract class EntityHuman extends EntityLiving {
+ 
+     public float getCooldownPeriod() { return this.eR(); } // Paper - OBFHELPER
+     public float eR() {
+-        return (float) (1.0D / this.b(GenericAttributes.ATTACK_SPEED) * 20.0D);
++        double d0 = this.b(GenericAttributes.ATTACK_SPEED) - 1.5D;
++        return d0 <= 0.0D ? Float.MAX_VALUE : Math.round((float) (20.0D / d0));
+     }
+ 
+     public float getAttackCooldown(float f) {
+-        return MathHelper.a(((float) this.at + f) / this.eR(), 0.0F, 1.0F);
++        return MathHelper.a(((float) (this.at - this.attackStrengthStartValue) + f) / this.eR(), this.missedAttackRecovery ? 0.0F : 1.0F, 2.0F);
+     }
+ 
+     public void resetAttackCooldown() {
+-        this.at = 0;
++        this.resetAttackCooldown(true);
++    }
++
++    public boolean isAttackAvailable(float f) {
++        return this.getAttackCooldown(f) >= 1.0F;
++    }
++
++    public void resetAttackCooldown(boolean hit) {
++        this.attackStrengthStartValue = this.at;
++        this.missedAttackRecovery = !hit;
++    }
++
++    public double getCurrentAttackReach(float f) {
++        return this.b(GenericAttributes.ATTACK_REACH) * (double) this.getAttackCooldown(f);
+     }
+ 
+     public ItemCooldown getCooldownTracker() {
+diff --git a/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java b/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java
+index 646043987e1102ae8e9becc9820e6c6d86ef844d..3139a437ce35710cb7026d085edccab7a6d0d201 100644
+--- a/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java
++++ b/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java
+@@ -37,6 +37,11 @@ public class EntityThrownTrident extends EntityArrow {
+         this.trident = new ItemStack(Items.TRIDENT);
+     }
+ 
++    public EntityThrownTrident(World world, double d0, double d1, double d2) {
++        super(EntityTypes.TRIDENT, d0, d1, d2, world);
++        this.trident = new ItemStack(Items.TRIDENT);
++    }
++
+     public EntityThrownTrident(World world, EntityLiving entityliving, ItemStack itemstack) {
+         super(EntityTypes.TRIDENT, entityliving, world);
+         this.trident = new ItemStack(Items.TRIDENT);
+@@ -45,6 +50,12 @@ public class EntityThrownTrident extends EntityArrow {
+         this.datawatcher.set(EntityThrownTrident.ag, itemstack.u());
+     }
+ 
++    public void setTridentItem(ItemStack itemstack) {
++        if (itemstack.getItem() == Items.TRIDENT || itemstack.isEmpty()) {
++            this.trident = itemstack.cloneItemStack();
++        }
++    }
++
+     @Override
+     protected void initDatawatcher() {
+         super.initDatawatcher();
+@@ -117,7 +128,7 @@ public class EntityThrownTrident extends EntityArrow {
+         if (entity instanceof EntityLiving) {
+             EntityLiving entityliving = (EntityLiving) entity;
+ 
+-            f += EnchantmentManager.a(this.trident, entityliving.getMonsterType());
++            f += EnchantmentManager.a(this.trident, entityliving);
+         }
+ 
+         Entity entity1 = this.getShooter();
+diff --git a/src/main/java/net/minecraft/world/food/FoodMetaData.java b/src/main/java/net/minecraft/world/food/FoodMetaData.java
+index e455b25b0809af15f6fde957121d0110da7eb08f..b64b101620fa891c61b2640ca95eea6cfe9ff118 100644
+--- a/src/main/java/net/minecraft/world/food/FoodMetaData.java
++++ b/src/main/java/net/minecraft/world/food/FoodMetaData.java
+@@ -38,7 +38,7 @@ public class FoodMetaData {
+ 
+     public void eat(int i, float f) {
+         this.foodLevel = Math.min(i + this.foodLevel, 20);
+-        this.saturationLevel = Math.min(this.saturationLevel + (float) i * f * 2.0F, (float) this.foodLevel);
++        this.saturationLevel = Math.min(Math.max(this.saturationLevel, (float) i * f * 2.0F), (float) this.foodLevel);
+     }
+ 
+     public void a(Item item, ItemStack itemstack) {
+@@ -82,27 +82,22 @@ public class FoodMetaData {
+ 
+         boolean flag = entityhuman.world.getGameRules().getBoolean(GameRules.NATURAL_REGENERATION);
+ 
+-        if (flag && this.saturationLevel > 0.0F && entityhuman.eJ() && this.foodLevel >= 20) {
++        if (flag && this.foodLevel > 6 && entityhuman.eJ()) {
+             ++this.foodTickTimer;
+-            if (this.foodTickTimer >= this.saturatedRegenRate) { // CraftBukkit
+-                float f = Math.min(this.saturationLevel, 6.0F);
+-
+-                entityhuman.heal(f / 6.0F, org.bukkit.event.entity.EntityRegainHealthEvent.RegainReason.SATIATED, true); // CraftBukkit - added RegainReason // Paper - This is fast regen
+-                // this.a(f); CraftBukkit - EntityExhaustionEvent
+-                entityhuman.applyExhaustion(f, org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason.REGEN); // CraftBukkit - EntityExhaustionEvent
+-                this.foodTickTimer = 0;
+-            }
+-        } else if (flag && this.foodLevel >= 18 && entityhuman.eJ()) {
+-            ++this.foodTickTimer;
+-            if (this.foodTickTimer >= this.unsaturatedRegenRate) { // CraftBukkit - add regen rate manipulation
++            if (this.foodTickTimer >= 40) {
+                 entityhuman.heal(1.0F, org.bukkit.event.entity.EntityRegainHealthEvent.RegainReason.SATIATED); // CraftBukkit - added RegainReason
+-                // this.a(6.0F); CraftBukkit - EntityExhaustionEvent
+-                entityhuman.applyExhaustion(entityhuman.world.spigotConfig.regenExhaustion, org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason.REGEN); // CraftBukkit - EntityExhaustionEvent // Spigot - Change to use configurable value
++                if (entityhuman.getRandom().nextFloat() < 0.5F) {
++                    org.bukkit.event.entity.FoodLevelChangeEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callFoodLevelChangeEvent(entityhuman, Math.max(this.foodLevel - 1, 0));
++                    if (!event.isCancelled()) {
++                        this.foodLevel = event.getFoodLevel();
++                    }
++                    ((EntityPlayer) entityhuman).playerConnection.sendPacket(new PacketPlayOutUpdateHealth(((EntityPlayer) entityhuman).getBukkitEntity().getScaledHealth(), this.foodLevel, this.saturationLevel));
++                }
+                 this.foodTickTimer = 0;
+             }
+         } else if (this.foodLevel <= 0) {
+             ++this.foodTickTimer;
+-            if (this.foodTickTimer >= this.starvationRate) { // CraftBukkit - add regen rate manipulation
++            if (this.foodTickTimer >= 40) {
+                 if (entityhuman.getHealth() > 10.0F || enumdifficulty == EnumDifficulty.HARD || entityhuman.getHealth() > 1.0F && enumdifficulty == EnumDifficulty.NORMAL) {
+                     entityhuman.damageEntity(DamageSource.STARVE, 1.0F);
+                 }
+@@ -140,6 +135,10 @@ public class FoodMetaData {
+         return this.foodLevel < 20;
+     }
+ 
++    public boolean isEnoughToSprint() {
++        return this.foodLevel > 6;
++    }
++
+     public void a(float f) {
+         this.exhaustionLevel = Math.min(this.exhaustionLevel + f, 40.0F);
+     }
+diff --git a/src/main/java/net/minecraft/world/item/ItemBow.java b/src/main/java/net/minecraft/world/item/ItemBow.java
+index 015f4d71f35a9d512814389b6e6cab74c0daf116..0234492ce133ab0f27627202ab409469dbefabc7 100644
+--- a/src/main/java/net/minecraft/world/item/ItemBow.java
++++ b/src/main/java/net/minecraft/world/item/ItemBow.java
+@@ -41,8 +41,9 @@ public class ItemBow extends ItemProjectileWeapon implements ItemVanishable {
+                         ItemArrow itemarrow = (ItemArrow) ((ItemArrow) (itemstack1.getItem() instanceof ItemArrow ? itemstack1.getItem() : Items.ARROW));
+                         EntityArrow entityarrow = itemarrow.a(world, itemstack1, (EntityLiving) entityhuman);
+ 
+-                        entityarrow.a(entityhuman, entityhuman.pitch, entityhuman.yaw, 0.0F, f * 3.0F, 1.0F);
+-                        if (f == 1.0F) {
++                        float fatigue = b(j);
++                        entityarrow.a(entityhuman, entityhuman.pitch, entityhuman.yaw, 0.0F, f * 3.0F, 0.25F * fatigue);
++                        if (f == 1.0F && fatigue <= 0.5F) {
+                             entityarrow.setCritical(true);
+                         }
+ 
+@@ -114,6 +115,13 @@ public class ItemBow extends ItemProjectileWeapon implements ItemVanishable {
+         return f;
+     }
+ 
++    public static float b(int i) {
++        if (i < 60) {
++            return 0.5F;
++        }
++        return i >= 200 ? 10.5F : 0.5F + 10.0F * (float) (i - 60) / 140.0F;
++    }
++
+     @Override
+     public int e_(ItemStack itemstack) {
+         return 72000;
+diff --git a/src/main/java/net/minecraft/world/item/ItemCrossbow.java b/src/main/java/net/minecraft/world/item/ItemCrossbow.java
+index 4e1e819c8535e8a6b9aa5f76afe568ea171b939f..0df555ae8f5353e4be55cf248a1862eaa330a3f9 100644
+--- a/src/main/java/net/minecraft/world/item/ItemCrossbow.java
++++ b/src/main/java/net/minecraft/world/item/ItemCrossbow.java
+@@ -233,7 +233,7 @@ public class ItemCrossbow extends ItemProjectileWeapon implements ItemVanishable
+                 Vector3fa vector3fa = new Vector3fa(vec3d1);
+ 
+                 vector3fa.a(quaternion);
+-                ((IProjectile) object).shoot((double) vector3fa.a(), (double) vector3fa.b(), (double) vector3fa.c(), f1, f2);
++                ((IProjectile) object).shoot((double) vector3fa.a(), (double) vector3fa.b(), (double) vector3fa.c(), f1, 0.25F);
+             }
+             // CraftBukkit start
+             org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(entityliving, itemstack, itemstack1, (Entity) object, entityliving.getRaisedHand(), f, true);
+diff --git a/src/main/java/net/minecraft/world/item/ItemEgg.java b/src/main/java/net/minecraft/world/item/ItemEgg.java
+index 4b1a6ee784da4595931396a905f1358b7a13f3dd..0e350cf869bda913a000ffba0e0a14ccdf47f120 100644
+--- a/src/main/java/net/minecraft/world/item/ItemEgg.java
++++ b/src/main/java/net/minecraft/world/item/ItemEgg.java
+@@ -36,6 +36,7 @@ public class ItemEgg extends Item {
+ 
+                 world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_EGG_THROW, SoundCategory.PLAYERS, 0.5F, 0.4F / (net.minecraft.world.entity.Entity.SHARED_RANDOM.nextFloat() * 0.4F + 0.8F));
+                 entityhuman.b(StatisticList.ITEM_USED.b(this));
++                entityhuman.getCooldownTracker().setCooldown(this, 4);
+             } else {
+                 if (entityhuman instanceof net.minecraft.server.level.EntityPlayer) {
+                     ((net.minecraft.server.level.EntityPlayer) entityhuman).getBukkitEntity().updateInventory();
+diff --git a/src/main/java/net/minecraft/world/item/ItemMilkBucket.java b/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
+index 6085c5f75bd85cca3462613c18c2e2bf26205d1b..9e1cb5b6363753b0d0da7975a3612d39da97d426 100644
+--- a/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
++++ b/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
+@@ -37,7 +37,7 @@ public class ItemMilkBucket extends Item {
+ 
+     @Override
+     public int e_(ItemStack itemstack) {
+-        return 32;
++        return 20;
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/item/ItemPotion.java b/src/main/java/net/minecraft/world/item/ItemPotion.java
+index ca2f8d522d7f2305f161cb4aa611226355ea5789..0f414a05b60ebabe0f85dffb1b11cea1cc215cf3 100644
+--- a/src/main/java/net/minecraft/world/item/ItemPotion.java
++++ b/src/main/java/net/minecraft/world/item/ItemPotion.java
+@@ -88,7 +88,7 @@ public class ItemPotion extends Item {
+ 
+     @Override
+     public int e_(ItemStack itemstack) {
+-        return 32;
++        return 20;
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/item/ItemShield.java b/src/main/java/net/minecraft/world/item/ItemShield.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d592c023c0805dff34f63efa408e788f6d712afa
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/ItemShield.java
+@@ -0,0 +1,57 @@
++package net.minecraft.world.item;
++
++import net.minecraft.tags.TagsItem;
++import net.minecraft.world.EnumHand;
++import net.minecraft.world.InteractionResultWrapper;
++import net.minecraft.world.entity.player.EntityHuman;
++import net.minecraft.world.level.IMaterial;
++import net.minecraft.world.level.World;
++import net.minecraft.world.level.block.BlockDispenser;
++
++public class ItemShield extends Item {
++
++    public ItemShield(Item.Info item_info) {
++        super(item_info);
++        BlockDispenser.a((IMaterial) this, ItemArmor.a);
++    }
++
++    @Override
++    public String f(ItemStack itemstack) {
++        return itemstack.b("BlockEntityTag") != null ? this.getName() + '.' + d(itemstack).c() : super.f(itemstack);
++    }
++
++    @Override
++    public EnumAnimation d_(ItemStack itemstack) {
++        return EnumAnimation.BLOCK;
++    }
++
++    @Override
++    public int e_(ItemStack itemstack) {
++        return 72000;
++    }
++
++    @Override
++    public InteractionResultWrapper<ItemStack> a(World world, EntityHuman entityhuman, EnumHand enumhand) {
++        ItemStack itemstack = entityhuman.b(enumhand);
++
++        entityhuman.c(enumhand);
++        return InteractionResultWrapper.consume(itemstack);
++    }
++
++    @Override
++    public boolean a(ItemStack itemstack, ItemStack itemstack1) {
++        return TagsItem.PLANKS.isTagged(itemstack1.getItem()) || super.a(itemstack, itemstack1);
++    }
++
++    public static EnumColor d(ItemStack itemstack) {
++        return EnumColor.fromColorIndex(itemstack.a("BlockEntityTag").getInt("Base"));
++    }
++
++    public static float getShieldBlockDamageValue(ItemStack itemstack) {
++        return itemstack.b("BlockEntityTag") != null ? 10.0F : 5.0F;
++    }
++
++    public static float getShieldKnockbackResistanceValue(ItemStack itemstack) {
++        return itemstack.b("BlockEntityTag") != null ? 0.8F : 0.5F;
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/ItemSnowball.java b/src/main/java/net/minecraft/world/item/ItemSnowball.java
+index 8a1d59cb1ea5a8959c52272aa762ec35307246d7..970a7dce1fb4274d9767104ba9e3736fb9d4aa26 100644
+--- a/src/main/java/net/minecraft/world/item/ItemSnowball.java
++++ b/src/main/java/net/minecraft/world/item/ItemSnowball.java
+@@ -37,6 +37,7 @@ public class ItemSnowball extends Item {
+                 }
+ 
+                 world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_SNOWBALL_THROW, SoundCategory.NEUTRAL, 0.5F, 0.4F / (ItemSnowball.RANDOM.nextFloat() * 0.4F + 0.8F));
++                entityhuman.getCooldownTracker().setCooldown(this, 4);
+             } else { // Paper
+                 if (entityhuman instanceof net.minecraft.server.level.EntityPlayer) ((net.minecraft.server.level.EntityPlayer) entityhuman).getBukkitEntity().updateInventory(); // Paper
+                 return new InteractionResultWrapper<ItemStack>(net.minecraft.world.EnumInteractionResult.FAIL, itemstack); // Paper
+diff --git a/src/main/java/net/minecraft/world/item/ItemSword.java b/src/main/java/net/minecraft/world/item/ItemSword.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..42dcb9adb6d314ad866e1ef3a2bef35c8b7b7a0d
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/ItemSword.java
+@@ -0,0 +1,81 @@
++package net.minecraft.world.item;
++
++import com.google.common.collect.ImmutableMultimap;
++import com.google.common.collect.ImmutableMultimap.Builder;
++import com.google.common.collect.Multimap;
++import net.minecraft.core.BlockPosition;
++import net.minecraft.tags.Tag;
++import net.minecraft.tags.TagsBlock;
++import net.minecraft.world.entity.EntityLiving;
++import net.minecraft.world.entity.EnumItemSlot;
++import net.minecraft.world.entity.ai.attributes.AttributeBase;
++import net.minecraft.world.entity.ai.attributes.AttributeModifier;
++import net.minecraft.world.entity.player.EntityHuman;
++import net.minecraft.world.level.World;
++import net.minecraft.world.level.block.Blocks;
++import net.minecraft.world.level.block.state.IBlockData;
++import net.minecraft.world.level.material.Material;
++
++public class ItemSword extends ItemToolMaterial implements ItemVanishable {
++
++    private final float a;
++    private final Multimap<AttributeBase, AttributeModifier> b;
++
++    public ItemSword(ToolMaterial toolmaterial, int i, float f, Item.Info item_info) {
++        super(toolmaterial, item_info);
++        this.a = WeaponType.SWORD.getDamage(toolmaterial);
++        Builder<AttributeBase, AttributeModifier> builder = ImmutableMultimap.builder();
++
++        WeaponType.SWORD.addCombatAttributes(toolmaterial, builder);
++        this.b = builder.build();
++    }
++
++    public float f() {
++        return this.a;
++    }
++
++    @Override
++    public boolean a(IBlockData iblockdata, World world, BlockPosition blockposition, EntityHuman entityhuman) {
++        return !entityhuman.isCreative();
++    }
++
++    @Override
++    public float getDestroySpeed(ItemStack itemstack, IBlockData iblockdata) {
++        if (iblockdata.a(Blocks.COBWEB)) {
++            return 15.0F;
++        } else {
++            Material material = iblockdata.getMaterial();
++
++            return material != Material.PLANT && material != Material.REPLACEABLE_PLANT && material != Material.CORAL && !iblockdata.a((Tag) TagsBlock.LEAVES) && material != Material.PUMPKIN ? 1.0F : 1.5F;
++        }
++    }
++
++    @Override
++    public boolean a(ItemStack itemstack, EntityLiving entityliving, EntityLiving entityliving1) {
++        itemstack.damage(1, entityliving1, (entityliving2) -> {
++            entityliving2.broadcastItemBreak(EnumItemSlot.MAINHAND);
++        });
++        return true;
++    }
++
++    @Override
++    public boolean a(ItemStack itemstack, World world, IBlockData iblockdata, BlockPosition blockposition, EntityLiving entityliving) {
++        if (iblockdata.h(world, blockposition) != 0.0F) {
++            itemstack.damage(2, entityliving, (entityliving1) -> {
++                entityliving1.broadcastItemBreak(EnumItemSlot.MAINHAND);
++            });
++        }
++
++        return true;
++    }
++
++    @Override
++    public boolean canDestroySpecialBlock(IBlockData iblockdata) {
++        return iblockdata.a(Blocks.COBWEB);
++    }
++
++    @Override
++    public Multimap<AttributeBase, AttributeModifier> a(EnumItemSlot enumitemslot) {
++        return enumitemslot == EnumItemSlot.MAINHAND ? this.b : super.a(enumitemslot);
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/ItemTool.java b/src/main/java/net/minecraft/world/item/ItemTool.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..9f75aca4c397e72713d2a3781f3a1abc0b072ff5
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/ItemTool.java
+@@ -0,0 +1,81 @@
++package net.minecraft.world.item;
++
++import com.google.common.collect.ImmutableMultimap;
++import com.google.common.collect.ImmutableMultimap.Builder;
++import com.google.common.collect.Multimap;
++import java.util.Set;
++import net.minecraft.core.BlockPosition;
++import net.minecraft.world.entity.EntityLiving;
++import net.minecraft.world.entity.EnumItemSlot;
++import net.minecraft.world.entity.ai.attributes.AttributeBase;
++import net.minecraft.world.entity.ai.attributes.AttributeModifier;
++import net.minecraft.world.level.World;
++import net.minecraft.world.level.block.Block;
++import net.minecraft.world.level.block.state.IBlockData;
++
++public class ItemTool extends ItemToolMaterial implements ItemVanishable {
++
++    private final Set<Block> a;
++    protected final float b;
++    private final float c;
++    private final Multimap<AttributeBase, AttributeModifier> d;
++
++    protected ItemTool(float f, float f1, ToolMaterial toolmaterial, Set<Block> set, Item.Info item_info) {
++        super(toolmaterial, item_info);
++        this.a = set;
++        this.b = toolmaterial.b();
++        WeaponType weaponType = ItemTool.getWeaponType(this);
++        this.c = weaponType.getDamage(toolmaterial);
++        Builder<AttributeBase, AttributeModifier> builder = ImmutableMultimap.builder();
++
++        weaponType.addCombatAttributes(toolmaterial, builder);
++        this.d = builder.build();
++    }
++
++    private static WeaponType getWeaponType(ItemTool itemtool) {
++        if (itemtool instanceof ItemAxe) {
++            return WeaponType.AXE;
++        } else if (itemtool instanceof ItemPickaxe) {
++            return WeaponType.PICKAXE;
++        } else if (itemtool instanceof ItemHoe) {
++            return WeaponType.HOE;
++        } else if (itemtool instanceof ItemSpade) {
++            return WeaponType.SHOVEL;
++        } else {
++            return WeaponType.PICKAXE;
++        }
++    }
++
++    @Override
++    public float getDestroySpeed(ItemStack itemstack, IBlockData iblockdata) {
++        return this.a.contains(iblockdata.getBlock()) ? this.b : 1.0F;
++    }
++
++    @Override
++    public boolean a(ItemStack itemstack, EntityLiving entityliving, EntityLiving entityliving1) {
++        itemstack.damage(2, entityliving1, (entityliving2) -> {
++            entityliving2.broadcastItemBreak(EnumItemSlot.MAINHAND);
++        });
++        return true;
++    }
++
++    @Override
++    public boolean a(ItemStack itemstack, World world, IBlockData iblockdata, BlockPosition blockposition, EntityLiving entityliving) {
++        if (!world.isClientSide && iblockdata.h(world, blockposition) != 0.0F) {
++            itemstack.damage(1, entityliving, (entityliving1) -> {
++                entityliving1.broadcastItemBreak(EnumItemSlot.MAINHAND);
++            });
++        }
++
++        return true;
++    }
++
++    @Override
++    public Multimap<AttributeBase, AttributeModifier> a(EnumItemSlot enumitemslot) {
++        return enumitemslot == EnumItemSlot.MAINHAND ? this.d : super.a(enumitemslot);
++    }
++
++    public float d() {
++        return this.c;
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/ItemTrident.java b/src/main/java/net/minecraft/world/item/ItemTrident.java
+index 9896477b54cf91a88bdfc3d85018a59193b32859..0f2d3d397ce4835526215fe0cc4b4a819a3a6191 100644
+--- a/src/main/java/net/minecraft/world/item/ItemTrident.java
++++ b/src/main/java/net/minecraft/world/item/ItemTrident.java
+@@ -34,8 +34,7 @@ public class ItemTrident extends Item implements ItemVanishable {
+         super(item_info);
+         Builder<AttributeBase, AttributeModifier> builder = ImmutableMultimap.builder();
+ 
+-        builder.put(GenericAttributes.ATTACK_DAMAGE, new AttributeModifier(ItemTrident.f, "Tool modifier", 8.0D, AttributeModifier.Operation.ADDITION));
+-        builder.put(GenericAttributes.ATTACK_SPEED, new AttributeModifier(ItemTrident.g, "Tool modifier", -2.9000000953674316D, AttributeModifier.Operation.ADDITION));
++        WeaponType.TRIDENT.addCombatAttributes(EnumToolMaterial.IRON, builder);
+         this.a = builder.build();
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/item/WeaponType.java b/src/main/java/net/minecraft/world/item/WeaponType.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7ecbbbd1418243b4e200aa71271a93d00d570ba
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/WeaponType.java
+@@ -0,0 +1,89 @@
++package net.minecraft.world.item;
++
++import com.google.common.collect.ImmutableMultimap;
++import java.util.UUID;
++import net.minecraft.world.entity.ai.attributes.AttributeBase;
++import net.minecraft.world.entity.ai.attributes.AttributeModifier;
++import net.minecraft.world.entity.ai.attributes.GenericAttributes;
++
++enum WeaponType {
++    SWORD,
++    AXE,
++    PICKAXE,
++    HOE,
++    SHOVEL,
++    TRIDENT;
++
++    static final UUID BASE_ATTACK_DAMAGE_UUID = UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF");
++    static final UUID BASE_ATTACK_SPEED_UUID = UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3");
++    static final UUID BASE_ATTACK_REACH_UUID = UUID.fromString("26cb07a3-209d-4110-8e10-1010243614c8");
++
++    void addCombatAttributes(ToolMaterial toolmaterial, ImmutableMultimap.Builder<AttributeBase, AttributeModifier> builder) {
++        float damage = this.getDamage(toolmaterial);
++        float speed = this.getSpeed(toolmaterial);
++        float reach = this.getReach(toolmaterial);
++
++        builder.put(GenericAttributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double) damage, AttributeModifier.Operation.ADDITION));
++        builder.put(GenericAttributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Weapon modifier", (double) speed, AttributeModifier.Operation.ADDITION));
++        if (reach != 0.0F) {
++            builder.put(GenericAttributes.ATTACK_REACH, new AttributeModifier(BASE_ATTACK_REACH_UUID, "Weapon modifier", (double) reach, AttributeModifier.Operation.ADDITION));
++        }
++    }
++
++    float getDamage(ToolMaterial toolmaterial) {
++        switch (this) {
++            case SWORD:
++                return toolmaterial.c() + 2.0F;
++            case AXE:
++                return toolmaterial.c() + 3.0F;
++            case PICKAXE:
++                return toolmaterial.c() + 1.0F;
++            case HOE:
++                if (toolmaterial == EnumToolMaterial.IRON || toolmaterial == EnumToolMaterial.DIAMOND) {
++                    return 1.0F;
++                }
++                return toolmaterial == EnumToolMaterial.NETHERITE ? 2.0F : 0.0F;
++            case SHOVEL:
++                return toolmaterial.c();
++            case TRIDENT:
++                return 5.0F;
++            default:
++                return 0.0F;
++        }
++    }
++
++    float getSpeed(ToolMaterial toolmaterial) {
++        switch (this) {
++            case SWORD:
++                return 0.5F;
++            case AXE:
++            case SHOVEL:
++            case TRIDENT:
++                return -0.5F;
++            case PICKAXE:
++                return 0.0F;
++            case HOE:
++                if (toolmaterial == EnumToolMaterial.WOOD) {
++                    return -0.5F;
++                }
++                if (toolmaterial == EnumToolMaterial.IRON || toolmaterial == EnumToolMaterial.DIAMOND || toolmaterial == EnumToolMaterial.GOLD || toolmaterial == EnumToolMaterial.NETHERITE) {
++                    return 1.0F;
++                }
++                return 0.0F;
++            default:
++                return 0.0F;
++        }
++    }
++
++    float getReach(ToolMaterial toolmaterial) {
++        switch (this) {
++            case SWORD:
++                return 0.5F;
++            case HOE:
++            case TRIDENT:
++                return 1.0F;
++            default:
++                return 0.0F;
++        }
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/Enchantment.java b/src/main/java/net/minecraft/world/item/enchantment/Enchantment.java
+index c719c1c1f837753f61eb7be83b6ec2a214ab6819..e1f31f3999c7c7d104fa9015d77018d99cc8191a 100644
+--- a/src/main/java/net/minecraft/world/item/enchantment/Enchantment.java
++++ b/src/main/java/net/minecraft/world/item/enchantment/Enchantment.java
+@@ -114,7 +114,11 @@ public abstract class Enchantment {
+     }
+ 
+     public boolean canEnchant(ItemStack itemstack) {
+-        return this.itemTarget.canEnchant(itemstack.getItem());
++        return this.canEnchant(itemstack, false);
++    }
++
++    public boolean canEnchant(ItemStack itemstack, boolean flag) {
++        return this.itemTarget.canEnchant(itemstack.getItem(), flag);
+     }
+ 
+     public void a(EntityLiving entityliving, Entity entity, int i) {}
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3c2c9b669b48ceea96ce6adcf46758b39bf2e85
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java
+@@ -0,0 +1,37 @@
++package net.minecraft.world.item.enchantment;
++
++import net.minecraft.world.entity.EnumItemSlot;
++import net.minecraft.world.item.ItemAxe;
++import net.minecraft.world.item.ItemStack;
++
++public class EnchantmentCleaving extends Enchantment {
++
++    public EnchantmentCleaving(Enchantment.Rarity rarity, EnumItemSlot... slots) {
++        super(rarity, EnchantmentSlotType.WEAPON, slots);
++    }
++
++    @Override
++    public int a(int level) {
++        return 5 + (level - 1) * 20;
++    }
++
++    @Override
++    public int b(int level) {
++        return this.a(level) + 50;
++    }
++
++    @Override
++    public int getMaxLevel() {
++        return 3;
++    }
++
++    @Override
++    public boolean canEnchant(ItemStack itemstack) {
++        return this.canEnchant(itemstack, false);
++    }
++
++    @Override
++    public boolean canEnchant(ItemStack itemstack, boolean flag) {
++        return itemstack.getItem() instanceof ItemAxe;
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java
+index 72afbf8f537770540e90a2880ea81de137ea10f5..80dedc946f75561dd2f9406b16eb275b93d188b0 100644
+--- a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java
++++ b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java
+@@ -147,6 +147,21 @@ public class EnchantmentManager {
+         return mutablefloat.floatValue();
+     }
+ 
++    public static float a(ItemStack itemstack, @Nullable EntityLiving entityliving) {
++        MutableFloat mutablefloat = new MutableFloat();
++
++        a((enchantment, i) -> {
++            if (enchantment instanceof EnchantmentTridentImpaling && entityliving != null) {
++                if (entityliving.getMonsterType() == EnumMonsterType.WATER_MOB || entityliving.isInWaterOrRain()) {
++                    mutablefloat.add((float) i * 2.5F);
++                }
++            } else {
++                mutablefloat.add(enchantment.a(i, entityliving == null ? EnumMonsterType.UNDEFINED : entityliving.getMonsterType()));
++            }
++        }, itemstack);
++        return mutablefloat.floatValue();
++    }
++
+     public static float a(EntityLiving entityliving) {
+         int i = a(Enchantments.SWEEPING, entityliving);
+ 
+@@ -221,6 +236,10 @@ public class EnchantmentManager {
+         return a(Enchantments.DEPTH_STRIDER, entityliving);
+     }
+ 
++    public static int getCleavingEnchantmentLevel(EntityLiving entityliving) {
++        return a(Enchantments.CLEAVING, entityliving);
++    }
++
+     public static int getDigSpeedEnchantmentLevel(EntityLiving entityliving) {
+         return a(Enchantments.DIG_SPEED, entityliving);
+     }
+@@ -407,7 +426,7 @@ public class EnchantmentManager {
+         while (iterator.hasNext()) {
+             Enchantment enchantment = (Enchantment) iterator.next();
+ 
+-            if ((!enchantment.isTreasure() || flag) && enchantment.i() && (enchantment.itemTarget.canEnchant(item) || flag1)) {
++            if ((!enchantment.isTreasure() || flag) && enchantment.i() && (enchantment.itemTarget.canEnchant(item, false) || flag1)) {
+                 for (int j = enchantment.getMaxLevel(); j > enchantment.getStartLevel() - 1; --j) {
+                     if (i >= enchantment.a(j) && i <= enchantment.b(j)) {
+                         list.add(new WeightedRandomEnchant(enchantment, j));
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSlotType.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSlotType.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..2ae9b1799a08c1ac11cec58cae2b13022c29c522
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSlotType.java
+@@ -0,0 +1,139 @@
++package net.minecraft.world.item.enchantment;
++
++import net.minecraft.world.entity.EnumItemSlot;
++import net.minecraft.world.item.Item;
++import net.minecraft.world.item.ItemArmor;
++import net.minecraft.world.item.ItemAxe;
++import net.minecraft.world.item.ItemBow;
++import net.minecraft.world.item.ItemCrossbow;
++import net.minecraft.world.item.ItemFishingRod;
++import net.minecraft.world.item.ItemHoe;
++import net.minecraft.world.item.ItemSword;
++import net.minecraft.world.item.ItemTool;
++import net.minecraft.world.item.ItemTrident;
++import net.minecraft.world.item.ItemVanishable;
++import net.minecraft.world.item.ItemWearable;
++import net.minecraft.world.level.block.Block;
++
++public enum EnchantmentSlotType {
++
++    ARMOR {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemArmor;
++        }
++    },
++    ARMOR_FEET {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemArmor && ((ItemArmor) item).b() == EnumItemSlot.FEET;
++        }
++    },
++    ARMOR_LEGS {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemArmor && ((ItemArmor) item).b() == EnumItemSlot.LEGS;
++        }
++    },
++    ARMOR_CHEST {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemArmor && ((ItemArmor) item).b() == EnumItemSlot.CHEST;
++        }
++    },
++    ARMOR_HEAD {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemArmor && ((ItemArmor) item).b() == EnumItemSlot.HEAD;
++        }
++    },
++    WEAPON {
++        @Override
++        public boolean canEnchant(Item item) {
++            return this.canEnchant(item, false);
++        }
++
++        @Override
++        public boolean canEnchant(Item item, boolean flag) {
++            return item instanceof ItemSword || flag && item instanceof ItemAxe;
++        }
++    },
++    DIGGER {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemTool;
++        }
++    },
++    FISHING_ROD {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemFishingRod;
++        }
++    },
++    TRIDENT {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemTrident;
++        }
++    },
++    BREAKABLE {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item.usesDurability();
++        }
++    },
++    BOW {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemBow;
++        }
++    },
++    WEARABLE {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemWearable || Block.asBlock(item) instanceof ItemWearable;
++        }
++    },
++    CROSSBOW {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemCrossbow;
++        }
++    },
++    AXE {
++        @Override
++        public boolean canEnchant(Item item) {
++            return this.canEnchant(item, false);
++        }
++
++        @Override
++        public boolean canEnchant(Item item, boolean flag) {
++            return item instanceof ItemAxe;
++        }
++    },
++    HOE {
++        @Override
++        public boolean canEnchant(Item item) {
++            return item instanceof ItemHoe;
++        }
++    },
++    VANISHABLE {
++        @Override
++        public boolean canEnchant(Item item) {
++            return this.canEnchant(item, false);
++        }
++
++        @Override
++        public boolean canEnchant(Item item, boolean flag) {
++            return item instanceof ItemVanishable || Block.asBlock(item) instanceof ItemVanishable || EnchantmentSlotType.BREAKABLE.canEnchant(item, flag);
++        }
++    };
++
++    private EnchantmentSlotType() {}
++
++    public abstract boolean canEnchant(Item item);
++
++    public boolean canEnchant(Item item, boolean flag) {
++        return this.canEnchant(item);
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSweeping.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSweeping.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..a57b6506581b7fd1a6ff6f736282129927b084ba
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentSweeping.java
+@@ -0,0 +1,29 @@
++package net.minecraft.world.item.enchantment;
++
++import net.minecraft.world.entity.EnumItemSlot;
++
++public class EnchantmentSweeping extends Enchantment {
++
++    public EnchantmentSweeping(Enchantment.Rarity enchantment_rarity, EnumItemSlot... aenumitemslot) {
++        super(enchantment_rarity, EnchantmentSlotType.WEAPON, aenumitemslot);
++    }
++
++    @Override
++    public int a(int i) {
++        return 5 + (i - 1) * 9;
++    }
++
++    @Override
++    public int b(int i) {
++        return this.a(i) + 15;
++    }
++
++    @Override
++    public int getMaxLevel() {
++        return 3;
++    }
++
++    public static float e(int i) {
++        return 0.5F - 0.5F / (float) (i + 1);
++    }
++}
+diff --git a/src/main/java/net/minecraft/world/item/enchantment/Enchantments.java b/src/main/java/net/minecraft/world/item/enchantment/Enchantments.java
+index 0b96c02bbf0aa2f086e9f21b07876ca538e4c4b5..3ba6e266142fe1219fc35f5ebd50d6b7875b2708 100644
+--- a/src/main/java/net/minecraft/world/item/enchantment/Enchantments.java
++++ b/src/main/java/net/minecraft/world/item/enchantment/Enchantments.java
+@@ -25,6 +25,7 @@ public class Enchantments {
+     public static final Enchantment FIRE_ASPECT = a("fire_aspect", new EnchantmentFire(Enchantment.Rarity.RARE, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+     public static final Enchantment LOOT_BONUS_MOBS = a("looting", new EnchantmentLootBonus(Enchantment.Rarity.RARE, EnchantmentSlotType.WEAPON, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+     public static final Enchantment SWEEPING = a("sweeping", new EnchantmentSweeping(Enchantment.Rarity.RARE, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
++    public static final Enchantment CLEAVING = a("cleaving", new EnchantmentCleaving(Enchantment.Rarity.RARE, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+     public static final Enchantment DIG_SPEED = a("efficiency", new EnchantmentDigging(Enchantment.Rarity.COMMON, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+     public static final Enchantment SILK_TOUCH = a("silk_touch", new EnchantmentSilkTouch(Enchantment.Rarity.VERY_RARE, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+     public static final Enchantment DURABILITY = a("unbreaking", new EnchantmentDurability(Enchantment.Rarity.UNCOMMON, new EnumItemSlot[]{EnumItemSlot.MAINHAND}));
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 894c7834f8e5829058e5004829a795a1004510bf..90419ae650495829cb02de60089ef52d477b0d2e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -528,7 +528,10 @@ public final class CraftServer implements Server {
+ 
+     @Override
+     public String getVersion() {
+-        return serverVersion + " (MC: " + console.getVersion() + ")";
++        // Paper 8c external start - use minecraft version 1.16.5 instead of Combat Test 8c for plugin compatability
++        // return serverVersion + " (MC: " + console.getVersion() + ")";
++        return serverVersion + " (MC: 1.16.5)";
++        // Paper 8c external end
+     }
+ 
+     @Override
+@@ -539,7 +542,10 @@ public final class CraftServer implements Server {
+     // Paper start - expose game version
+     @Override
+     public String getMinecraftVersion() {
+-        return console.getVersion();
++        // Paper 8c external start - use minecraft version 1.16.5 instead of Combat Test 8c for plugin compatability
++        // return console.getVersion();
++        return "1.16.5";
++        // Paper 8c external end
+     }
+     // Paper end
+ 
+diff --git a/src/main/resources/version.json b/src/main/resources/version.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd7681ce572403c2fa3d7df1a752f6a216a5b497
+--- /dev/null
++++ b/src/main/resources/version.json
+@@ -0,0 +1,10 @@
++{
++    "id": "1.16_combat-6",
++    "name": "Combat Test 8c",
++    "release_target": "1.16_combat-6",
++    "world_version": 2586,
++    "protocol_version": 803,
++    "pack_version": 6,
++    "build_time": "2020-08-21T00:00:00+00:00",
++    "stable": false
++}
