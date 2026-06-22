@@ -96,6 +96,104 @@ index ce63f3e5ac4d1a4311c0ebeb7574d999d45987d9..80917ea9003d81c7101c4f29461eaa0b
  
          private EnumEntityUseAction() {}
      }
+diff --git a/src/main/java/net/minecraft/server/commands/CommandEnchant.java b/src/main/java/net/minecraft/server/commands/CommandEnchant.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..9b75b6968dd960e7170ade081c5caa9c44c41672
+--- /dev/null
++++ b/src/main/java/net/minecraft/server/commands/CommandEnchant.java
+@@ -0,0 +1,92 @@
++package net.minecraft.server.commands;
++
++import com.mojang.brigadier.CommandDispatcher;
++import com.mojang.brigadier.arguments.ArgumentType;
++import com.mojang.brigadier.arguments.IntegerArgumentType;
++import com.mojang.brigadier.builder.LiteralArgumentBuilder;
++import com.mojang.brigadier.builder.RequiredArgumentBuilder;
++import com.mojang.brigadier.exceptions.CommandSyntaxException;
++import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
++import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
++import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
++import java.util.Collection;
++import java.util.Iterator;
++import net.minecraft.commands.CommandListenerWrapper;
++import net.minecraft.commands.arguments.ArgumentEnchantment;
++import net.minecraft.commands.arguments.ArgumentEntity;
++import net.minecraft.network.chat.ChatMessage;
++import net.minecraft.world.entity.Entity;
++import net.minecraft.world.entity.EntityLiving;
++import net.minecraft.world.item.ItemStack;
++import net.minecraft.world.item.enchantment.Enchantment;
++import net.minecraft.world.item.enchantment.EnchantmentManager;
++
++public class CommandEnchant {
++
++    private static final DynamicCommandExceptionType a = new DynamicCommandExceptionType((object) -> {
++        return new ChatMessage("commands.enchant.failed.entity", new Object[]{object});
++    });
++    private static final DynamicCommandExceptionType b = new DynamicCommandExceptionType((object) -> {
++        return new ChatMessage("commands.enchant.failed.itemless", new Object[]{object});
++    });
++    private static final DynamicCommandExceptionType c = new DynamicCommandExceptionType((object) -> {
++        return new ChatMessage("commands.enchant.failed.incompatible", new Object[]{object});
++    });
++    private static final Dynamic2CommandExceptionType d = new Dynamic2CommandExceptionType((object, object1) -> {
++        return new ChatMessage("commands.enchant.failed.level", new Object[]{object, object1});
++    });
++    private static final SimpleCommandExceptionType e = new SimpleCommandExceptionType(new ChatMessage("commands.enchant.failed"));
++
++    public static void a(CommandDispatcher<CommandListenerWrapper> commanddispatcher) {
++        commanddispatcher.register((LiteralArgumentBuilder) ((LiteralArgumentBuilder) net.minecraft.commands.CommandDispatcher.a("enchant").requires((commandlistenerwrapper) -> {
++            return commandlistenerwrapper.hasPermission(2);
++        })).then(net.minecraft.commands.CommandDispatcher.a("targets", (ArgumentType) ArgumentEntity.multipleEntities()).then(((RequiredArgumentBuilder) net.minecraft.commands.CommandDispatcher.a("enchantment", (ArgumentType) ArgumentEnchantment.a()).executes((commandcontext) -> {
++            return a((CommandListenerWrapper) commandcontext.getSource(), ArgumentEntity.b(commandcontext, "targets"), ArgumentEnchantment.a(commandcontext, "enchantment"), 1);
++        })).then(net.minecraft.commands.CommandDispatcher.a("level", (ArgumentType) IntegerArgumentType.integer(0)).executes((commandcontext) -> {
++            return a((CommandListenerWrapper) commandcontext.getSource(), ArgumentEntity.b(commandcontext, "targets"), ArgumentEnchantment.a(commandcontext, "enchantment"), IntegerArgumentType.getInteger(commandcontext, "level"));
++        })))));
++    }
++
++    private static int a(CommandListenerWrapper commandlistenerwrapper, Collection<? extends Entity> collection, Enchantment enchantment, int i) throws CommandSyntaxException {
++        if (i > enchantment.getMaxLevel()) {
++            throw CommandEnchant.d.create(i, enchantment.getMaxLevel());
++        } else {
++            int j = 0;
++            Iterator iterator = collection.iterator();
++
++            while (iterator.hasNext()) {
++                Entity entity = (Entity) iterator.next();
++
++                if (entity instanceof EntityLiving) {
++                    EntityLiving entityliving = (EntityLiving) entity;
++                    ItemStack itemstack = entityliving.getItemInMainHand();
++
++                    if (!itemstack.isEmpty()) {
++                        if (enchantment.canEnchant(itemstack, true) && EnchantmentManager.a((Collection) EnchantmentManager.a(itemstack).keySet(), enchantment)) {
++                            itemstack.addEnchantment(enchantment, i);
++                            ++j;
++                        } else if (collection.size() == 1) {
++                            throw CommandEnchant.c.create(itemstack.getItem().h(itemstack).getString());
++                        }
++                    } else if (collection.size() == 1) {
++                        throw CommandEnchant.b.create(entityliving.getDisplayName().getString());
++                    }
++                } else if (collection.size() == 1) {
++                    throw CommandEnchant.a.create(entity.getDisplayName().getString());
++                }
++            }
++
++            if (j == 0) {
++                throw CommandEnchant.e.create();
++            } else {
++                if (collection.size() == 1) {
++                    commandlistenerwrapper.sendMessage(new ChatMessage("commands.enchant.success.single", new Object[]{enchantment.d(i), ((Entity) collection.iterator().next()).getScoreboardDisplayName()}), true);
++                } else {
++                    commandlistenerwrapper.sendMessage(new ChatMessage("commands.enchant.success.multiple", new Object[]{enchantment.d(i), collection.size()}), true);
++                }
++
++                return j;
++            }
++        }
++    }
++}
 diff --git a/src/main/java/net/minecraft/server/level/EntityPlayer.java b/src/main/java/net/minecraft/server/level/EntityPlayer.java
 index 75bcfb3a2b4a104aeebb2fe3298714b2e5b569d2..e4a1cc960e91faf584d5bca8baff938eabb45eea 100644
 --- a/src/main/java/net/minecraft/server/level/EntityPlayer.java
@@ -134,24 +232,28 @@ index 87722285690d9d3370610e2a2eb809e0d1f497c9..6d03c7694e1cfc5fb5267c9867bd1a89
          double d1 = this.player.locY() - ((double) blockposition.getY() + 0.5D) + 1.5D;
          double d2 = this.player.locZ() - ((double) blockposition.getZ() + 0.5D);
 diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
-index 7044620e7fb5874913e7911adb606668a76ac0de..81281698b1bc5ae7679597c74c3377a81d2fb941 100644
+index 7044620e7fb5874913e7911adb606668a76ac0de..6a330fedef502a79bd4334d11fdd63572f8be642 100644
 --- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
 +++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
-@@ -2336,9 +2336,11 @@ public class PlayerConnection implements PacketListenerPlayIn {
+@@ -2336,9 +2336,14 @@ public class PlayerConnection implements PacketListenerPlayIn {
          this.player.resetIdleTimer();
          this.player.setSneaking(packetplayinuseentity.e());
          if (entity != null) {
 -            double d0 = 36.0D;
-+            double d0 = this.player.getCurrentAttackReach(0.5F) + 0.25D;
-+            AxisAlignedBB axisalignedbb = entity.getBoundingBox();
-+            Vec3D vec3d = new Vec3D(Math.max(axisalignedbb.minX, Math.min(this.player.locX(), axisalignedbb.maxX)), Math.max(axisalignedbb.minY, Math.min(this.player.getHeadY(), axisalignedbb.maxY)), Math.max(axisalignedbb.minZ, Math.min(this.player.locZ(), axisalignedbb.maxZ)));
- 
+-
 -            if (this.player.h(entity) < 36.0D) {
-+            if (this.player.getEyePosition(1.0F).distanceSquared(vec3d) < d0 * d0) {
++            boolean flag = this.player.hasLineOfSight(entity);
++            double d0 = this.player.getCurrentAttackReach(1.0F) + 0.25D;
++            double d1 = flag ? d0 * d0 : 6.25D;
++            AxisAlignedBB axisalignedbb = entity.getBoundingBox();
++            Vec3D vec3d1 = this.player.getEyePosition(0.0F);
++            Vec3D vec3d = new Vec3D(Math.max(axisalignedbb.minX, Math.min(vec3d1.x, axisalignedbb.maxX)), Math.max(axisalignedbb.minY, Math.min(vec3d1.y, axisalignedbb.maxY)), Math.max(axisalignedbb.minZ, Math.min(vec3d1.z, axisalignedbb.maxZ)));
++
++            if (vec3d1.distanceSquared(vec3d) < d1) {
                  EnumHand enumhand = packetplayinuseentity.c();
                  ItemStack itemstack = enumhand != null ? this.player.b(enumhand).cloneItemStack() : ItemStack.b;
                  Optional<EnumInteractionResult> optional = Optional.empty();
-@@ -2417,6 +2419,8 @@ public class PlayerConnection implements PacketListenerPlayIn {
+@@ -2417,6 +2422,8 @@ public class PlayerConnection implements PacketListenerPlayIn {
                          this.player.updateInventory(this.player.activeContainer);
                      }
                      // CraftBukkit end
@@ -160,7 +262,7 @@ index 7044620e7fb5874913e7911adb606668a76ac0de..81281698b1bc5ae7679597c74c3377a8
                  }
  
                  if (optional.isPresent() && ((EnumInteractionResult) optional.get()).a()) {
-@@ -2429,6 +2433,9 @@ public class PlayerConnection implements PacketListenerPlayIn {
+@@ -2429,6 +2436,9 @@ public class PlayerConnection implements PacketListenerPlayIn {
          }
          // Paper start - fire event
          else {
@@ -170,8 +272,76 @@ index 7044620e7fb5874913e7911adb606668a76ac0de..81281698b1bc5ae7679597c74c3377a8
              this.server.getPluginManager().callEvent(new com.destroystokyo.paper.event.player.PlayerUseUnknownEntityEvent(
                  this.getPlayer(),
                  packetplayinuseentity.getEntityId(),
+diff --git a/src/main/java/net/minecraft/world/effect/MobEffectList.java b/src/main/java/net/minecraft/world/effect/MobEffectList.java
+index 6dbd54c44ac88025464f78e72069c538d9f43dc3..88611bc8023673f82810fd18beb986a5cc0a62e9 100644
+--- a/src/main/java/net/minecraft/world/effect/MobEffectList.java
++++ b/src/main/java/net/minecraft/world/effect/MobEffectList.java
+@@ -60,7 +60,7 @@ public class MobEffectList {
+         } else if (this == MobEffects.WITHER) {
+             entityliving.damageEntity(DamageSource.WITHER, 1.0F);
+         } else if (this == MobEffects.HUNGER && entityliving instanceof EntityHuman) {
+-            ((EntityHuman) entityliving).applyExhaustion(0.005F * (float) (i + 1), org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason.HUNGER_EFFECT); // CraftBukkit - EntityExhaustionEvent
++            ((EntityHuman) entityliving).applyExhaustion(0.005F * (float) (i * i * 5 + 1), org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason.HUNGER_EFFECT); // CraftBukkit - EntityExhaustionEvent
+         } else if (this == MobEffects.SATURATION && entityliving instanceof EntityHuman) {
+             if (!entityliving.world.isClientSide) {
+                 // CraftBukkit start
+@@ -81,7 +81,7 @@ public class MobEffectList {
+                 entityliving.damageEntity(DamageSource.MAGIC, (float) (6 << i));
+             }
+         } else {
+-            entityliving.heal((float) Math.max(4 << i, 0), RegainReason.MAGIC); // CraftBukkit
++            entityliving.heal((float) Math.max(6 << i, 0), RegainReason.MAGIC); // CraftBukkit
+         }
+ 
+     }
+@@ -101,7 +101,7 @@ public class MobEffectList {
+                 }
+             }
+         } else {
+-            j = (int) (d0 * (double) (4 << i) + 0.5D);
++            j = (int) (d0 * (double) (6 << i) + 0.5D);
+             entityliving.heal((float) j, RegainReason.MAGIC); // CraftBukkit
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/effect/MobEffects.java b/src/main/java/net/minecraft/world/effect/MobEffects.java
+index f09f19b80f3bf641d0cfab89c1cbb98fcd814f6a..4f15ee0d81708c87cfd749d19882e56930d07053 100644
+--- a/src/main/java/net/minecraft/world/effect/MobEffects.java
++++ b/src/main/java/net/minecraft/world/effect/MobEffects.java
+@@ -14,7 +14,7 @@ public class MobEffects {
+     public static final MobEffectList SLOWER_MOVEMENT = a(2, "slowness", (new MobEffectList(MobEffectInfo.HARMFUL, 5926017)).a(GenericAttributes.MOVEMENT_SPEED, "7107DE5E-7CE8-4030-940E-514C1F160890", -0.15000000596046448D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+     public static final MobEffectList FASTER_DIG = a(3, "haste", (new MobEffectList(MobEffectInfo.BENEFICIAL, 14270531)).a(GenericAttributes.ATTACK_SPEED, "AF8B6E3F-3328-4C0A-AA36-5BA2BB9DBEF3", 0.10000000149011612D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+     public static final MobEffectList SLOWER_DIG = a(4, "mining_fatigue", (new MobEffectList(MobEffectInfo.HARMFUL, 4866583)).a(GenericAttributes.ATTACK_SPEED, "55FCED67-E92A-486E-9800-B47F202C4386", -0.10000000149011612D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+-    public static final MobEffectList INCREASE_DAMAGE = a(5, "strength", (new MobEffectAttackDamage(MobEffectInfo.BENEFICIAL, 9643043, 3.0D)).a(GenericAttributes.ATTACK_DAMAGE, "648D7064-6A60-4F59-8ABE-C2C23A6DD7A9", 0.0D, AttributeModifier.Operation.ADDITION));
++    public static final MobEffectList INCREASE_DAMAGE = a(5, "strength", (new MobEffectAttackDamage(MobEffectInfo.BENEFICIAL, 9643043, 0.2D)).a(GenericAttributes.ATTACK_DAMAGE, "648D7064-6A60-4F59-8ABE-C2C23A6DD7A9", 0.0D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+     public static final MobEffectList HEAL = a(6, "instant_health", new InstantMobEffect(MobEffectInfo.BENEFICIAL, 16262179));
+     public static final MobEffectList HARM = a(7, "instant_damage", new InstantMobEffect(MobEffectInfo.HARMFUL, 4393481));
+     public static final MobEffectList JUMP = a(8, "jump_boost", new MobEffectList(MobEffectInfo.BENEFICIAL, 2293580));
+@@ -27,7 +27,7 @@ public class MobEffects {
+     public static final MobEffectList BLINDNESS = a(15, "blindness", new MobEffectList(MobEffectInfo.HARMFUL, 2039587));
+     public static final MobEffectList NIGHT_VISION = a(16, "night_vision", new MobEffectList(MobEffectInfo.BENEFICIAL, 2039713));
+     public static final MobEffectList HUNGER = a(17, "hunger", new MobEffectList(MobEffectInfo.HARMFUL, 5797459));
+-    public static final MobEffectList WEAKNESS = a(18, "weakness", (new MobEffectAttackDamage(MobEffectInfo.HARMFUL, 4738376, -4.0D)).a(GenericAttributes.ATTACK_DAMAGE, "22653B89-116E-49DC-9B6B-9971489B5BE5", 0.0D, AttributeModifier.Operation.ADDITION));
++    public static final MobEffectList WEAKNESS = a(18, "weakness", (new MobEffectAttackDamage(MobEffectInfo.HARMFUL, 4738376, -0.2D)).a(GenericAttributes.ATTACK_DAMAGE, "22653B89-116E-49DC-9B6B-9971489B5BE5", 0.0D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+     public static final MobEffectList POISON = a(19, "poison", new MobEffectList(MobEffectInfo.HARMFUL, 5149489));
+     public static final MobEffectList WITHER = a(20, "wither", new MobEffectList(MobEffectInfo.HARMFUL, 3484199));
+     public static final MobEffectList HEALTH_BOOST = a(21, "health_boost", (new MobEffectHealthBoost(MobEffectInfo.BENEFICIAL, 16284963)).a(GenericAttributes.MAX_HEALTH, "5D6F0BA2-1186-46AC-B896-C61C5CEE99CC", 4.0D, AttributeModifier.Operation.ADDITION));
+diff --git a/src/main/java/net/minecraft/world/entity/Entity.java b/src/main/java/net/minecraft/world/entity/Entity.java
+index 0ec3589df774af366a896b8dc257f138e94e6e18..e9fef97da706181410dcb18999a59191c73efa79 100644
+--- a/src/main/java/net/minecraft/world/entity/Entity.java
++++ b/src/main/java/net/minecraft/world/entity/Entity.java
+@@ -2276,6 +2276,10 @@ public abstract class Entity implements INamableTileEntity, ICommandListener, ne
+ 
+     public final float getCollisionBorderSize() { return bg(); } // Paper - OBFHELPER
+     public float bg() {
++        float f = Math.max(this.getWidth(), this.getHeight());
++        if (f < 0.9F) {
++            return (0.9F - f) * 0.5F;
++        }
+         return 0.0F;
+     }
+ 
 diff --git a/src/main/java/net/minecraft/world/entity/EntityInsentient.java b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
-index 6c024a5fdd290e5eb219e677e28718d663b72f25..c593b2ff14adb9026cdba5341a5990fd1aa78479 100644
+index 6c024a5fdd290e5eb219e677e28718d663b72f25..d0227b4758446dc14a2718b001cc01a2e188a830 100644
 --- a/src/main/java/net/minecraft/world/entity/EntityInsentient.java
 +++ b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
 @@ -1574,7 +1574,7 @@ public abstract class EntityInsentient extends EntityLiving {
@@ -183,8 +353,39 @@ index 6c024a5fdd290e5eb219e677e28718d663b72f25..c593b2ff14adb9026cdba5341a5990fd
              f1 += (float) EnchantmentManager.b((EntityLiving) this);
          }
  
+@@ -1599,11 +1599,6 @@ public abstract class EntityInsentient extends EntityLiving {
+                 this.setMot(this.getMot().d(0.6D, 1.0D, 0.6D));
+             }
+ 
+-            if (entity instanceof EntityHuman) {
+-                EntityHuman entityhuman = (EntityHuman) entity;
+-
+-                this.a(entityhuman, this.getItemInMainHand(), entityhuman.isHandRaised() ? entityhuman.getActiveItem() : ItemStack.b);
+-            }
+ 
+             this.a((EntityLiving) this, entity);
+             this.z(entity);
+@@ -1612,18 +1607,6 @@ public abstract class EntityInsentient extends EntityLiving {
+         return flag;
+     }
+ 
+-    private void a(EntityHuman entityhuman, ItemStack itemstack, ItemStack itemstack1) {
+-        if (!itemstack.isEmpty() && !itemstack1.isEmpty() && itemstack.getItem() instanceof ItemAxe && itemstack1.getItem() == Items.SHIELD) {
+-            float f = 0.25F + (float) EnchantmentManager.getDigSpeedEnchantmentLevel(this) * 0.05F;
+-
+-            if (this.random.nextFloat() < f) {
+-                entityhuman.getCooldownTracker().setCooldown(Items.SHIELD, 100);
+-                this.world.broadcastEntityEffect(entityhuman, (byte) 30);
+-            }
+-        }
+-
+-    }
+-
+     public boolean isInDaylight() { return this.eG(); } // Paper - OBFHELPER
+     protected boolean eG() {
+         if (this.world.isDay() && !this.world.isClientSide) {
 diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
-index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..b2935ecd368694dc8f2de17075317d7fdeba4747 100644
+index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..b99899301d5c9e309c8fc6c4af7f5b114ef57ea8 100644
 --- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
 +++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
 @@ -85,6 +85,7 @@ import net.minecraft.world.item.EnumAnimation;
@@ -195,32 +396,100 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..b2935ecd368694dc8f2de17075317d7f
  import net.minecraft.world.item.ItemStack;
  import net.minecraft.world.item.Items;
  import net.minecraft.world.item.alchemy.PotionUtil;
-@@ -1485,7 +1486,7 @@ public abstract class EntityLiving extends Entity {
-                 Vec3D vec3d2 = vec3d.a(this.getPositionVector()).d();
+@@ -1242,7 +1243,16 @@ public abstract class EntityLiving extends Entity {
+             this.av = 1.5F;
+             boolean flag1 = true;
  
-                 vec3d2 = new Vec3D(vec3d2.x, 0.0D, vec3d2.z);
+-            if ((float) this.noDamageTicks > (float) this.maxNoDamageTicks / 2.0F) { // CraftBukkit - restore use of maxNoDamageTicks
++            int i = 10;
++            Entity entity = damagesource.getEntity();
++            if (entity instanceof EntityHuman) {
++                i = Math.min((int) ((EntityHuman) entity).getCooldownPeriod(), i);
++            }
++            if (damagesource.b()) { // isProjectile
++                i = 0;
++            }
++
++            if (this.noDamageTicks > 0) {
+                 if (f <= this.lastDamage) {
+                     this.forceExplosionKnockback = true; // CraftBukkit - SPIGOT-949 - for vanilla consistency, cooldown does not prevent explosion knockback
+                     return false;
+@@ -1261,7 +1271,7 @@ public abstract class EntityLiving extends Entity {
+                     return false;
+                 }
+                 this.lastDamage = f;
+-                this.noDamageTicks = this.maxNoDamageTicks; // CraftBukkit - restore use of maxNoDamageTicks
++                this.noDamageTicks = i;
+                 // this.damageEntity0(damagesource, f);
+                 // CraftBukkit end
+                 this.hurtDuration = 10;
+@@ -1283,6 +1293,9 @@ public abstract class EntityLiving extends Entity {
+             if (entity1 != null) {
+                 if (entity1 instanceof EntityLiving) {
+                     this.setLastDamager((EntityLiving) entity1);
++                    if (this.isHandRaised() && (this.getActiveItem().l() == EnumAnimation.EAT || this.getActiveItem().l() == EnumAnimation.DRINK)) {
++                        this.clearActiveItem();
++                    }
+                 }
+ 
+                 if (entity1 instanceof EntityHuman) {
+@@ -1394,6 +1407,14 @@ public abstract class EntityLiving extends Entity {
+ 
+     protected void e(EntityLiving entityliving) {
+         entityliving.doKnockback(0.5F, entityliving.locX() - this.locX(), entityliving.locZ() - this.locZ(), this); // Paper
++        if (this.getItemInMainHand().getItem() instanceof net.minecraft.world.item.ItemAxe) {
++            float f = 1.6F + (float) EnchantmentManager.getCleavingEnchantmentLevel(this) * 0.5F;
++            entityliving.disableShield(f);
++        }
++    }
++
++    public boolean disableShield(float f) {
++        return false;
+     }
+ 
+     private boolean f(DamageSource damagesource) {
+@@ -1482,11 +1503,15 @@ public abstract class EntityLiving extends Entity {
+ 
+             if (vec3d != null) {
+                 Vec3D vec3d1 = this.f(1.0F);
+-                Vec3D vec3d2 = vec3d.a(this.getPositionVector()).d();
+ 
+-                vec3d2 = new Vec3D(vec3d2.x, 0.0D, vec3d2.z);
 -                if (vec3d2.b(vec3d1) < 0.0D) {
-+                if (vec3d2.b(vec3d1) * Math.PI < -0.8726646304130554D) {
-                     return true;
+-                    return true;
++                if (vec3d1.y > -0.99D && vec3d1.y < 0.99D) {
++                    vec3d1 = new Vec3D(vec3d1.x, 0.0D, vec3d1.z).d();
++                    Vec3D vec3d2 = vec3d.a(this.getPositionVector());
++
++                    vec3d2 = new Vec3D(vec3d2.x, 0.0D, vec3d2.z).d();
++                    if (vec3d2.b(vec3d1) * Math.PI < -0.8726646304130554D) {
++                        return true;
++                    }
                  }
              }
-@@ -1666,13 +1667,13 @@ public abstract class EntityLiving extends Entity {
+         }
+@@ -1666,13 +1691,18 @@ public abstract class EntityLiving extends Entity {
      }
      public void doKnockback(float f, double d0, double d1, Entity knockingBackEntity) {
          // Paper end - add knockbacking entity parameter
 -        f = (float) ((double) f * (1.0D - this.b(GenericAttributes.KNOCKBACK_RESISTANCE)));
-+        f = (float) ((double) f * (1.0D - Math.min(1.0D, this.b(GenericAttributes.KNOCKBACK_RESISTANCE) + (double) ItemShield.getShieldKnockbackResistanceValue(this.getBlockingItem()))));
++        double knockbackResistance = this.b(GenericAttributes.KNOCKBACK_RESISTANCE);
++        ItemStack blockingItem = this.getBlockingItem();
++        if (!blockingItem.isEmpty()) {
++            knockbackResistance = Math.min(1.0D, knockbackResistance + (double) ItemShield.getShieldKnockbackResistanceValue(blockingItem));
++        }
++        f = (float) ((double) f * (1.0D - knockbackResistance));
          if (f > 0.0F) {
              this.impulse = true;
              Vec3D vec3d = this.getMot();
              Vec3D vec3d1 = (new Vec3D(d0, 0.0D, d1)).d().a((double) f);
  
 -            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.min(0.4D, vec3d.y / 2.0D + (double) f) : vec3d.y, vec3d.z / 2.0D - vec3d1.z);
-+            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.max(0.4D, vec3d.y / 2.0D + (double) f) : vec3d.y, vec3d.z / 2.0D - vec3d1.z);
++            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.min(0.4D, (double) f * 0.75D) : Math.min(0.4D, vec3d.y + (double) f * 0.5D), vec3d.z / 2.0D - vec3d1.z);
  
              // Paper start - call EntityKnockbackByEntityEvent
              Vec3D currentMot = this.getMot();
-@@ -1882,7 +1883,7 @@ public abstract class EntityLiving extends Entity {
+@@ -1882,7 +1912,7 @@ public abstract class EntityLiving extends Entity {
              Function<Double, Double> blocking = new Function<Double, Double>() {
                  @Override
                  public Double apply(Double f) {
@@ -229,7 +498,16 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..b2935ecd368694dc8f2de17075317d7f
                  }
              };
              float blockingModifier = blocking.apply((double) f).floatValue();
-@@ -3425,13 +3426,28 @@ public abstract class EntityLiving extends Entity {
+@@ -3133,7 +3163,7 @@ public abstract class EntityLiving extends Entity {
+ 
+     @Override
+     protected void velocityChanged() {
+-        this.velocityChanged = this.random.nextDouble() >= this.b(GenericAttributes.KNOCKBACK_RESISTANCE);
++        this.velocityChanged = true;
+     }
+ 
+     @Override
+@@ -3425,13 +3455,28 @@ public abstract class EntityLiving extends Entity {
      }
  
      public boolean isBlocking() {
@@ -276,7 +554,7 @@ index 5e256a5feface72f9c34612fa5bbb760b7a23a46..901b4fb29ad008ab09aa1d6a9dfac8f9
      public static final AttributeBase ARMOR_TOUGHNESS = a("generic.armor_toughness", (new AttributeRanged("attribute.name.generic.armor_toughness", 0.0D, 0.0D, 20.0D)).a(true));
      public static final AttributeBase LUCK = a("generic.luck", (new AttributeRanged("attribute.name.generic.luck", 0.0D, -1024.0D, 1024.0D)).a(true));
 diff --git a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
-index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6ee0f64c8c 100644
+index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..25494dd482afaf3d8f2dc66712a0a292b58066ec 100644
 --- a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
 +++ b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
 @@ -165,6 +165,8 @@ public abstract class EntityHuman extends EntityLiving {
@@ -297,7 +575,25 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
      }
  
      @Override
-@@ -1126,23 +1128,21 @@ public abstract class EntityHuman extends EntityLiving {
+@@ -880,10 +882,14 @@ public abstract class EntityHuman extends EntityLiving {
+     @Override
+     protected void shieldBlock(EntityLiving entityliving) {
+         super.shieldBlock(entityliving);
+-        if (entityliving.getItemInMainHand().getItem() instanceof ItemAxe) {
+-            this.p(true);
+-        }
++    }
+ 
++    @Override
++    public boolean disableShield(float f) {
++        this.getCooldownTracker().setCooldown(Items.SHIELD, (int) (f * 20.0F));
++        this.clearActiveItem();
++        this.world.broadcastEntityEffect(this, (byte) 30);
++        return true;
+     }
+ 
+     public boolean a(EntityHuman entityhuman) {
+@@ -1126,23 +1132,19 @@ public abstract class EntityHuman extends EntityLiving {
  
      public void attack(Entity entity) {
          if (entity.bL()) {
@@ -313,31 +609,46 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
                      f1 = EnchantmentManager.a(this.getItemInMainHand(), EnumMonsterType.UNDEFINED);
                  }
  
-                 float f2 = this.getAttackCooldown(0.5F);
- 
+-                float f2 = this.getAttackCooldown(0.5F);
+-
 -                f *= 0.2F + f2 * f2 * 0.8F;
 -                f1 *= f2;
                  // this.resetAttackCooldown(); // CraftBukkit - Moved to EntityLiving to reset the cooldown after the damage is dealt
                  if (f > 0.0F || f1 > 0.0F) {
 -                    boolean flag = f2 > 0.9F;
-+                    boolean flag = f2 > 1.95F;
++                    boolean flag = !this.isClimbing() && !this.isInWater() && !this.hasEffect(MobEffects.BLINDNESS) && !this.isPassenger() && entity instanceof EntityLiving;
                      boolean flag1 = false;
                      byte b0 = 0;
                      int i = b0 + EnchantmentManager.b((EntityLiving) this);
-@@ -1166,11 +1166,7 @@ public abstract class EntityHuman extends EntityLiving {
-                     double d0 = (double) (this.A - this.z);
+@@ -1153,25 +1155,15 @@ public abstract class EntityHuman extends EntityLiving {
+                         flag1 = true;
+                     }
  
-                     if (flag && !flag2 && !flag1 && this.onGround && d0 < (double) this.dN()) {
+-                    boolean flag2 = flag && this.fallDistance > 0.0F && !this.onGround && !this.isClimbing() && !this.isInWater() && !this.hasEffect(MobEffects.BLINDNESS) && !this.isPassenger() && entity instanceof EntityLiving;
++                    boolean flag2 = flag && this.fallDistance > 0.0F && !this.onGround;
+ 
+                     flag2 = flag2 && !world.paperConfig.disablePlayerCrits; // Paper
+-                    flag2 = flag2 && !this.isSprinting();
+                     if (flag2) {
+                         f *= 1.5F;
+                     }
+ 
+                     f += f1;
+-                    boolean flag3 = false;
+-                    double d0 = (double) (this.A - this.z);
+-
+-                    if (flag && !flag2 && !flag1 && this.onGround && d0 < (double) this.dN()) {
 -                        ItemStack itemstack = this.b(EnumHand.MAIN_HAND);
 -
 -                        if (itemstack.getItem() instanceof ItemSword) {
 -                            flag3 = true;
 -                        }
-+                        flag3 = this.checkSweepAttack();
-                     }
+-                    }
++                    boolean flag3 = !flag2 && !flag1 && this.checkSweepAttack();
  
                      float f3 = 0.0F;
-@@ -1212,24 +1208,7 @@ public abstract class EntityHuman extends EntityLiving {
+                     boolean flag4 = false;
+@@ -1212,24 +1204,7 @@ public abstract class EntityHuman extends EntityLiving {
                          }
  
                          if (flag3) {
@@ -359,11 +670,11 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
 -
 -                            sendSoundEffect(this, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_PLAYER_ATTACK_SWEEP, this.getSoundCategory(), 1.0F, 1.0F); // Paper - send while respecting visibility
 -                            this.ex();
-+                            this.sweepAttack(entity, f);
++                            this.sweepAttack(entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D), (float) this.getCurrentAttackReach(1.0F), f, entity);
                          }
  
                          if (entity instanceof EntityPlayer && entity.velocityChanged) {
-@@ -1314,7 +1293,8 @@ public abstract class EntityHuman extends EntityLiving {
+@@ -1314,7 +1289,8 @@ public abstract class EntityHuman extends EntityLiving {
                              }
                          }
  
@@ -373,31 +684,46 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
                      } else {
                          sendSoundEffect(this, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_PLAYER_ATTACK_NODAMAGE, this.getSoundCategory(), 1.0F, 1.0F); // Paper - send while respecting visibility
                          if (flag4) {
-@@ -1337,6 +1317,34 @@ public abstract class EntityHuman extends EntityLiving {
+@@ -1337,6 +1313,49 @@ public abstract class EntityHuman extends EntityLiving {
          this.attack(entityliving);
      }
  
 +    public void attackAir() {
 +        if (this.isAttackAvailable(1.0F)) {
++            this.swingHand(EnumHand.MAIN_HAND);
++            float f = (float) this.b(GenericAttributes.ATTACK_DAMAGE);
++
++            if (f > 0.0F && this.checkSweepAttack()) {
++                double d0 = this.getCurrentAttackReach(1.0F);
++                double d1 = (double) (-MathHelper.sin(this.yaw * 0.017453292F)) * 2.0D;
++                double d2 = (double) MathHelper.cos(this.yaw * 0.017453292F) * 2.0D;
++                AxisAlignedBB axisalignedbb = this.getBoundingBox().grow(1.0D, 0.25D, 1.0D).d(d1, 0.0D, d2);
++
++                this.sweepAttack(axisalignedbb, (float) d0, f, null);
++            }
++
 +            this.resetAttackCooldown(false);
 +        }
 +    }
 +
 +    protected boolean checkSweepAttack() {
-+        ItemStack itemstack = this.b(EnumHand.MAIN_HAND);
-+        return itemstack.getItem() instanceof ItemSword || EnchantmentManager.getCleavingEnchantmentLevel(this) > 0;
++        return this.getAttackCooldown(1.0F) > 1.95F && EnchantmentManager.a((EntityLiving) this) > 0.0F;
 +    }
 +
-+    protected void sweepAttack(Entity entity, float f) {
-+        float f4 = 1.0F + (float) EnchantmentManager.getCleavingEnchantmentLevel(this) * f;
-+        List<EntityLiving> list = this.world.a(EntityLiving.class, entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D));
++    protected void sweepAttack(AxisAlignedBB axisalignedbb, float reach, float damage, Entity entity) {
++        float f4 = 1.0F + EnchantmentManager.a((EntityLiving) this) * damage;
++        List<EntityLiving> list = this.world.a(EntityLiving.class, axisalignedbb);
 +        Iterator iterator = list.iterator();
 +
 +        while (iterator.hasNext()) {
 +            EntityLiving entityliving = (EntityLiving) iterator.next();
 +
-+            if (entityliving != this && entityliving != entity && !this.r(entityliving) && (!(entityliving instanceof EntityArmorStand) || !((EntityArmorStand) entityliving).isMarker()) && this.h((Entity) entityliving) < 9.0D && entityliving.damageEntity(DamageSource.playerAttack(this).sweep(), f4)) {
-+                entityliving.doKnockback(0.4F, (double) MathHelper.sin(this.yaw * 0.017453292F), (double) (-MathHelper.cos(this.yaw * 0.017453292F)), this); // Paper
++            if (entityliving != this && entityliving != entity && !this.r(entityliving) && (!(entityliving instanceof EntityArmorStand) || !((EntityArmorStand) entityliving).isMarker())) {
++                float f5 = reach + entityliving.getWidth() * 0.5F;
++
++                if (this.h((Entity) entityliving) < (double) (f5 * f5) && entityliving.damageEntity(DamageSource.playerAttack(this).sweep(), f4)) {
++                    entityliving.doKnockback(0.4F, (double) MathHelper.sin(this.yaw * 0.017453292F), (double) (-MathHelper.cos(this.yaw * 0.017453292F)), this); // Paper
++                }
 +            }
 +        }
 +
@@ -408,18 +734,19 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
      public void p(boolean flag) {
          float f = 0.25F + (float) EnchantmentManager.getDigSpeedEnchantmentLevel(this) * 0.05F;
  
-@@ -2119,15 +2127,29 @@ public abstract class EntityHuman extends EntityLiving {
+@@ -2119,15 +2138,37 @@ public abstract class EntityHuman extends EntityLiving {
  
      public float getCooldownPeriod() { return this.eR(); } // Paper - OBFHELPER
      public float eR() {
 -        return (float) (1.0D / this.b(GenericAttributes.ATTACK_SPEED) * 20.0D);
-+        double d0 = this.b(GenericAttributes.ATTACK_SPEED) - 1.5D;
-+        return d0 <= 0.0D ? Float.MAX_VALUE : Math.round((float) (20.0D / d0));
++        float f = (float) this.b(GenericAttributes.ATTACK_SPEED) - 1.5F;
++        f = MathHelper.a(f, 0.1F, 1024.0F);
++        return (int) (1.0F / f * 20.0F + 0.5F);
      }
  
      public float getAttackCooldown(float f) {
 -        return MathHelper.a(((float) this.at + f) / this.eR(), 0.0F, 1.0F);
-+        return MathHelper.a(((float) (this.at - this.attackStrengthStartValue) + f) / this.eR(), this.missedAttackRecovery ? 0.0F : 1.0F, 2.0F);
++        return MathHelper.a(((float) (this.at - this.attackStrengthStartValue) + f) / this.eR(), 0.0F, 2.0F);
      }
  
      public void resetAttackCooldown() {
@@ -428,7 +755,10 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
 +    }
 +
 +    public boolean isAttackAvailable(float f) {
-+        return this.getAttackCooldown(f) >= 1.0F;
++        if (this.getAttackCooldown(f) >= 1.0F) {
++            return true;
++        }
++        return this.missedAttackRecovery && (float) (this.at - this.attackStrengthStartValue) + f > 4.0F;
 +    }
 +
 +    public void resetAttackCooldown(boolean hit) {
@@ -437,7 +767,11 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..1b339340d6fbad16a995a4d711879a6e
 +    }
 +
 +    public double getCurrentAttackReach(float f) {
-+        return this.b(GenericAttributes.ATTACK_REACH) * (double) this.getAttackCooldown(f);
++        double d0 = 0.0D;
++        if (this.getAttackCooldown(f) > 1.95F && !this.bz()) {
++            d0 = 1.0D;
++        }
++        return this.b(GenericAttributes.ATTACK_REACH) + d0;
      }
  
      public ItemCooldown getCooldownTracker() {
@@ -479,8 +813,25 @@ index 646043987e1102ae8e9becc9820e6c6d86ef844d..3139a437ce35710cb7026d085edccab7
          }
  
          Entity entity1 = this.getShooter();
+diff --git a/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java b/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java
+index c7c4dd668a273d86d94cc288a0bf8083b8e599b3..3ce8a4947b4c50c486d32546a7aa6f82790b801b 100644
+--- a/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java
++++ b/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java
+@@ -224,7 +224,11 @@ public class EntityTippedArrow extends EntityArrow {
+ 
+         while (iterator.hasNext()) {
+             mobeffect = (MobEffect) iterator.next();
+-            entityliving.addEffect(new MobEffect(mobeffect.getMobEffect(), Math.max(mobeffect.getDuration() / 8, 1), mobeffect.getAmplifier(), mobeffect.isAmbient(), mobeffect.isShowParticles()), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.ARROW); // CraftBukkit
++            if (mobeffect.getMobEffect().isInstant()) {
++                mobeffect.getMobEffect().applyInstantEffect(this, this.getShooter(), entityliving, mobeffect.getAmplifier(), 0.125D);
++                continue;
++            }
++            entityliving.addEffect(new MobEffect(mobeffect.getMobEffect(), Math.max((int) ((float) mobeffect.getDuration() * 0.125F), 1), mobeffect.getAmplifier(), mobeffect.isAmbient(), mobeffect.isShowParticles()), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.ARROW); // CraftBukkit
+         }
+ 
+         if (!this.effects.isEmpty()) {
 diff --git a/src/main/java/net/minecraft/world/food/FoodMetaData.java b/src/main/java/net/minecraft/world/food/FoodMetaData.java
-index e455b25b0809af15f6fde957121d0110da7eb08f..b64b101620fa891c61b2640ca95eea6cfe9ff118 100644
+index e455b25b0809af15f6fde957121d0110da7eb08f..8cace78026d18a22d2a78c57c25dbfbe2f2b890c 100644
 --- a/src/main/java/net/minecraft/world/food/FoodMetaData.java
 +++ b/src/main/java/net/minecraft/world/food/FoodMetaData.java
 @@ -38,7 +38,7 @@ public class FoodMetaData {
@@ -488,7 +839,7 @@ index e455b25b0809af15f6fde957121d0110da7eb08f..b64b101620fa891c61b2640ca95eea6c
      public void eat(int i, float f) {
          this.foodLevel = Math.min(i + this.foodLevel, 20);
 -        this.saturationLevel = Math.min(this.saturationLevel + (float) i * f * 2.0F, (float) this.foodLevel);
-+        this.saturationLevel = Math.min(Math.max(this.saturationLevel, (float) i * f * 2.0F), (float) this.foodLevel);
++        this.saturationLevel = Math.max(this.saturationLevel, (float) i * f * 2.0F);
      }
  
      public void a(Item item, ItemStack itemstack) {
@@ -541,6 +892,95 @@ index e455b25b0809af15f6fde957121d0110da7eb08f..b64b101620fa891c61b2640ca95eea6c
      public void a(float f) {
          this.exhaustionLevel = Math.min(this.exhaustionLevel + f, 40.0F);
      }
+diff --git a/src/main/java/net/minecraft/world/inventory/ContainerAnvil.java b/src/main/java/net/minecraft/world/inventory/ContainerAnvil.java
+index ae5674ae9c539720a657838a640050cd3b4dc5b5..2ac10a1c266450a725265ea655fec10916a21234 100644
+--- a/src/main/java/net/minecraft/world/inventory/ContainerAnvil.java
++++ b/src/main/java/net/minecraft/world/inventory/ContainerAnvil.java
+@@ -183,7 +183,7 @@ public class ContainerAnvil extends ContainerAnvilAbstract {
+                             int i2 = (Integer) map1.get(enchantment);
+ 
+                             i2 = l1 == i2 ? i2 + 1 : Math.max(i2, l1);
+-                            boolean flag3 = enchantment.canEnchant(itemstack);
++                            boolean flag3 = enchantment.canEnchant(itemstack, flag);
+ 
+                             if (this.player.abilities.canInstantlyBuild || itemstack.getItem() == Items.ENCHANTED_BOOK) {
+                                 flag3 = true;
+diff --git a/src/main/java/net/minecraft/world/item/EnumToolMaterial.java b/src/main/java/net/minecraft/world/item/EnumToolMaterial.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..06b93763003418988130d8937ace0ca9a1eb01ee
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/EnumToolMaterial.java
+@@ -0,0 +1,70 @@
++package net.minecraft.world.item;
++
++import java.util.function.Supplier;
++import net.minecraft.tags.Tag;
++import net.minecraft.tags.TagsItem;
++import net.minecraft.util.LazyInitVar;
++import net.minecraft.world.item.crafting.RecipeItemStack;
++
++public enum EnumToolMaterial implements ToolMaterial {
++
++    WOOD(0, 59, 2.0F, 0.0F, 15, () -> {
++        return RecipeItemStack.a((Tag) TagsItem.PLANKS);
++    }), STONE(1, 131, 4.0F, 0.0F, 5, () -> {
++        return RecipeItemStack.a((Tag) TagsItem.STONE_TOOL_MATERIALS);
++    }), IRON(2, 250, 6.0F, 1.0F, 14, () -> {
++        return RecipeItemStack.a(Items.IRON_INGOT);
++    }), DIAMOND(3, 1561, 8.0F, 2.0F, 10, () -> {
++        return RecipeItemStack.a(Items.DIAMOND);
++    }), GOLD(0, 32, 12.0F, 0.0F, 22, () -> {
++        return RecipeItemStack.a(Items.GOLD_INGOT);
++    }), NETHERITE(4, 2031, 9.0F, 3.0F, 15, () -> {
++        return RecipeItemStack.a(Items.NETHERITE_INGOT);
++    });
++
++    private final int g;
++    private final int h;
++    private final float i;
++    private final float j;
++    private final int k;
++    private final LazyInitVar<RecipeItemStack> l;
++
++    private EnumToolMaterial(int i, int j, float f, float f1, int k, Supplier supplier) {
++        this.g = i;
++        this.h = j;
++        this.i = f;
++        this.j = f1;
++        this.k = k;
++        this.l = new LazyInitVar<>(supplier);
++    }
++
++    @Override
++    public int a() {
++        return this.h;
++    }
++
++    @Override
++    public float b() {
++        return this.i;
++    }
++
++    @Override
++    public float c() {
++        return this.j;
++    }
++
++    @Override
++    public int d() {
++        return this.g;
++    }
++
++    @Override
++    public int e() {
++        return this.k;
++    }
++
++    @Override
++    public RecipeItemStack f() {
++        return (RecipeItemStack) this.l.a();
++    }
++}
 diff --git a/src/main/java/net/minecraft/world/item/ItemBow.java b/src/main/java/net/minecraft/world/item/ItemBow.java
 index 015f4d71f35a9d512814389b6e6cab74c0daf116..0234492ce133ab0f27627202ab409469dbefabc7 100644
 --- a/src/main/java/net/minecraft/world/item/ItemBow.java
@@ -596,6 +1036,87 @@ index 4b1a6ee784da4595931396a905f1358b7a13f3dd..0e350cf869bda913a000ffba0e0a14cc
              } else {
                  if (entityhuman instanceof net.minecraft.server.level.EntityPlayer) {
                      ((net.minecraft.server.level.EntityPlayer) entityhuman).getBukkitEntity().updateInventory();
+diff --git a/src/main/java/net/minecraft/world/item/ItemHoneyBottle.java b/src/main/java/net/minecraft/world/item/ItemHoneyBottle.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..86ed45d47b82399777e32b7d701b9b9305772ae5
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/ItemHoneyBottle.java
+@@ -0,0 +1,75 @@
++package net.minecraft.world.item;
++
++import net.minecraft.advancements.CriterionTriggers;
++import net.minecraft.server.level.EntityPlayer;
++import net.minecraft.sounds.SoundEffect;
++import net.minecraft.sounds.SoundEffects;
++import net.minecraft.stats.StatisticList;
++import net.minecraft.world.EnumHand;
++import net.minecraft.world.InteractionResultWrapper;
++import net.minecraft.world.effect.MobEffects;
++import net.minecraft.world.entity.EntityLiving;
++import net.minecraft.world.entity.player.EntityHuman;
++import net.minecraft.world.level.World;
++
++public class ItemHoneyBottle extends Item {
++
++    public ItemHoneyBottle(Item.Info item_info) {
++        super(item_info);
++    }
++
++    @Override
++    public ItemStack a(ItemStack itemstack, World world, EntityLiving entityliving) {
++        super.a(itemstack, world, entityliving);
++        if (entityliving instanceof EntityPlayer) {
++            EntityPlayer entityplayer = (EntityPlayer) entityliving;
++
++            CriterionTriggers.z.a(entityplayer, itemstack);
++            entityplayer.b(StatisticList.ITEM_USED.b(this));
++        }
++
++        if (!world.isClientSide) {
++            entityliving.removeEffect(MobEffects.POISON);
++        }
++
++        if (itemstack.isEmpty()) {
++            return new ItemStack(Items.GLASS_BOTTLE);
++        } else {
++            if (entityliving instanceof EntityHuman && !((EntityHuman) entityliving).abilities.canInstantlyBuild) {
++                ItemStack itemstack1 = new ItemStack(Items.GLASS_BOTTLE);
++                EntityHuman entityhuman = (EntityHuman) entityliving;
++
++                if (!entityhuman.inventory.pickup(itemstack1)) {
++                    entityhuman.drop(itemstack1, false);
++                }
++            }
++
++            return itemstack;
++        }
++    }
++
++    @Override
++    public int e_(ItemStack itemstack) {
++        return 20;
++    }
++
++    @Override
++    public EnumAnimation d_(ItemStack itemstack) {
++        return EnumAnimation.DRINK;
++    }
++
++    @Override
++    public SoundEffect ae_() {
++        return SoundEffects.ITEM_HONEY_BOTTLE_DRINK;
++    }
++
++    @Override
++    public SoundEffect ad_() {
++        return SoundEffects.ITEM_HONEY_BOTTLE_DRINK;
++    }
++
++    @Override
++    public InteractionResultWrapper<ItemStack> a(World world, EntityHuman entityhuman, EnumHand enumhand) {
++        return ItemLiquidUtil.a(world, entityhuman, enumhand);
++    }
++}
 diff --git a/src/main/java/net/minecraft/world/item/ItemMilkBucket.java b/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
 index 6085c5f75bd85cca3462613c18c2e2bf26205d1b..9e1cb5b6363753b0d0da7975a3612d39da97d426 100644
 --- a/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
@@ -697,6 +1218,36 @@ index 8a1d59cb1ea5a8959c52272aa762ec35307246d7..970a7dce1fb4274d9767104ba9e3736f
              } else { // Paper
                  if (entityhuman instanceof net.minecraft.server.level.EntityPlayer) ((net.minecraft.server.level.EntityPlayer) entityhuman).getBukkitEntity().updateInventory(); // Paper
                  return new InteractionResultWrapper<ItemStack>(net.minecraft.world.EnumInteractionResult.FAIL, itemstack); // Paper
+diff --git a/src/main/java/net/minecraft/world/item/ItemSoup.java b/src/main/java/net/minecraft/world/item/ItemSoup.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e722114ed2481be7672c72e486d0c611d4ee944
+--- /dev/null
++++ b/src/main/java/net/minecraft/world/item/ItemSoup.java
+@@ -0,0 +1,24 @@
++package net.minecraft.world.item;
++
++import net.minecraft.world.entity.EntityLiving;
++import net.minecraft.world.entity.player.EntityHuman;
++import net.minecraft.world.level.World;
++
++public class ItemSoup extends Item {
++
++    public ItemSoup(Item.Info item_info) {
++        super(item_info);
++    }
++
++    @Override
++    public ItemStack a(ItemStack itemstack, World world, EntityLiving entityliving) {
++        ItemStack itemstack1 = super.a(itemstack, world, entityliving);
++
++        return entityliving instanceof EntityHuman && ((EntityHuman) entityliving).abilities.canInstantlyBuild ? itemstack1 : new ItemStack(Items.BOWL);
++    }
++
++    @Override
++    public int e_(ItemStack itemstack) {
++        return 20;
++    }
++}
 diff --git a/src/main/java/net/minecraft/world/item/ItemSword.java b/src/main/java/net/minecraft/world/item/ItemSword.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..42dcb9adb6d314ad866e1ef3a2bef35c8b7b7a0d
@@ -999,20 +1550,19 @@ index c719c1c1f837753f61eb7be83b6ec2a214ab6819..e1f31f3999c7c7d104fa9015d77018d9
      public void a(EntityLiving entityliving, Entity entity, int i) {}
 diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..e3c2c9b669b48ceea96ce6adcf46758b39bf2e85
+index 0000000000000000000000000000000000000000..14ecb4f0b33745fe08f6db14c83a3ac3747a4f38
 --- /dev/null
 +++ b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,36 @@
 +package net.minecraft.world.item.enchantment;
 +
 +import net.minecraft.world.entity.EnumItemSlot;
-+import net.minecraft.world.item.ItemAxe;
-+import net.minecraft.world.item.ItemStack;
++import net.minecraft.world.entity.EnumMonsterType;
 +
 +public class EnchantmentCleaving extends Enchantment {
 +
 +    public EnchantmentCleaving(Enchantment.Rarity rarity, EnumItemSlot... slots) {
-+        super(rarity, EnchantmentSlotType.WEAPON, slots);
++        super(rarity, EnchantmentSlotType.AXE, slots);
 +    }
 +
 +    @Override
@@ -1022,7 +1572,7 @@ index 0000000000000000000000000000000000000000..e3c2c9b669b48ceea96ce6adcf46758b
 +
 +    @Override
 +    public int b(int level) {
-+        return this.a(level) + 50;
++        return this.a(level) + 20;
 +    }
 +
 +    @Override
@@ -1031,13 +1581,13 @@ index 0000000000000000000000000000000000000000..e3c2c9b669b48ceea96ce6adcf46758b
 +    }
 +
 +    @Override
-+    public boolean canEnchant(ItemStack itemstack) {
-+        return this.canEnchant(itemstack, false);
++    public float a(int i, EnumMonsterType enummonstertype) {
++        return (float) (1 + i);
 +    }
 +
 +    @Override
-+    public boolean canEnchant(ItemStack itemstack, boolean flag) {
-+        return itemstack.getItem() instanceof ItemAxe;
++    protected boolean a(Enchantment enchantment) {
++        return !(enchantment instanceof EnchantmentWeaponDamage) && super.a(enchantment);
 +    }
 +}
 diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentManager.java
