@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:21:59 +0200
+Subject: [PATCH] Backport PrePlayerAttackEntityEvent
+
+diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+index 6a330fedef502a79bd4334d11fdd63572f8be642..931014d45b52ffbe26fb31fe934593721f154214 100644
+--- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+@@ -2415,7 +2415,17 @@ public class PlayerConnection implements PacketListenerPlayIn {
+                         return;
+                     }
+ 
+-                    this.player.attack(entity);
++                    // Paper start - PrePlayerAttackEntityEvent
++                    // The target has passed the invalid-entity checks above, so the attack will be
++                    // processed here as it was before; willAttack is therefore always true and the
++                    // event is purely additive (only a cancellation changes existing behaviour).
++                    final io.papermc.paper.event.player.PrePlayerAttackEntityEvent prePlayerAttackEntityEvent = new io.papermc.paper.event.player.PrePlayerAttackEntityEvent(
++                        this.getPlayer(), entity.getBukkitEntity(), true
++                    );
++                    if (prePlayerAttackEntityEvent.callEvent()) {
++                        this.player.attack(entity);
++                    }
++                    // Paper end - PrePlayerAttackEntityEvent
+ 
+                     // CraftBukkit start
+                     if (!itemInHand.isEmpty() && itemInHand.getCount() <= -1) {

@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:16:35 +0200
+Subject: [PATCH] Backport CommandSender#sendRichMessage and sendPlainMessage
+
+diff --git a/src/main/java/org/bukkit/command/CommandSender.java b/src/main/java/org/bukkit/command/CommandSender.java
+index fb0e608fa92dae99b9eee8fc1cbdf4b91a33e620..ed1baafec483c3b4703a62d7ab4efa77e530a8f9 100644
+--- a/src/main/java/org/bukkit/command/CommandSender.java
++++ b/src/main/java/org/bukkit/command/CommandSender.java
+@@ -148,5 +148,27 @@ public interface CommandSender extends net.kyori.adventure.audience.Audience, Pe
+     default void sendMessage(@NotNull net.md_5.bungee.api.chat.BaseComponent... components) {
+         this.sendMessage(new net.md_5.bungee.api.chat.TextComponent(components).toLegacyText());
+     }
++
++    /**
++     * Sends a message rendered from the given
++     * <a href="https://docs.adventure.kyori.net/minimessage.html">MiniMessage</a> string.
++     *
++     * <p>For example {@code sendRichMessage("<red>Hello <bold>there")} sends a red "Hello"
++     * followed by a red and bold "there".</p>
++     *
++     * @param message a MiniMessage string
++     */
++    default void sendRichMessage(final @NotNull String message) {
++        this.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(message));
++    }
++
++    /**
++     * Sends a plain message to the sender, with no parsing of colour codes or tags.
++     *
++     * @param message a plain message
++     */
++    default void sendPlainMessage(final @NotNull String message) {
++        this.sendMessage(net.kyori.adventure.text.Component.text(message));
++    }
+     // Paper end
+ }

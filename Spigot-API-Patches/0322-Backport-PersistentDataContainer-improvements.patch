@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:16:35 +0200
+Subject: [PATCH] Backport PersistentDataContainer improvements
+
+diff --git a/src/main/java/org/bukkit/persistence/PersistentDataContainer.java b/src/main/java/org/bukkit/persistence/PersistentDataContainer.java
+index bf2a957be52d86d07d7d303c86bd3da5fe0a16c0..e776266ccbec65ea20a09d6836754b469ffcd4a6 100644
+--- a/src/main/java/org/bukkit/persistence/PersistentDataContainer.java
++++ b/src/main/java/org/bukkit/persistence/PersistentDataContainer.java
+@@ -65,6 +65,20 @@ public interface PersistentDataContainer {
+      */
+     <T, Z> boolean has(@NotNull NamespacedKey key, @NotNull PersistentDataType<T, Z> type);
+ 
++    // Paper start
++    /**
++     * Returns if the persistent metadata provider has metadata registered under
++     * the provided key, regardless of its data type.
++     *
++     * @param key the key the value is stored under
++     * @return whether a value is stored under the given key
++     * @throws NullPointerException if the key to look up is null
++     */
++    default boolean has(@NotNull NamespacedKey key) {
++        return this.getKeys().contains(key);
++    }
++    // Paper end
++
+     /**
+      * Returns the metadata value that is stored on the
+      * {@link PersistentDataHolder} instance.
+@@ -151,4 +165,19 @@ public interface PersistentDataContainer {
+      */
+     @NotNull
+     PersistentDataAdapterContext getAdapterContext();
++
++    // Paper start
++    /**
++     * Copies all values from this {@link PersistentDataContainer} to the provided
++     * container.
++     * <p>
++     * This method only copies custom object keys. Existing tags stored on the
++     * provided container are not removed.
++     *
++     * @param other the container to copy to
++     * @param replace whether to replace any matching values in the target container
++     * @throws NullPointerException if the provided target container is null
++     */
++    void copyTo(@NotNull PersistentDataContainer other, boolean replace);
++    // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/persistence/PersistentDataType.java b/src/main/java/org/bukkit/persistence/PersistentDataType.java
+index 0af00a2485cbb3fccd689dea56f0a705d0034782..56b77d1193c9f39592dccf5afec30365dd34ffab 100644
+--- a/src/main/java/org/bukkit/persistence/PersistentDataType.java
++++ b/src/main/java/org/bukkit/persistence/PersistentDataType.java
+@@ -77,6 +77,11 @@ public interface PersistentDataType<T, Z> {
+      */
+     PersistentDataType<PersistentDataContainer, PersistentDataContainer> TAG_CONTAINER = new PrimitivePersistentDataType<>(PersistentDataContainer.class);
+ 
++    /*
++        Boolean. Paper - stored as a byte primitive.
++     */
++    PersistentDataType<Byte, Boolean> BOOLEAN = new BooleanPersistentDataType(); // Paper
++
+     /**
+      * Returns the primitive data type of this tag.
+      *
+@@ -155,4 +160,38 @@ public interface PersistentDataType<T, Z> {
+             return primitive;
+         }
+     }
++
++    // Paper start - byte-backed boolean data type
++    /**
++     * A {@link PersistentDataType} that stores and retrieves {@link Boolean}
++     * values, backed by a {@code byte} primitive ({@code 1} for {@code true},
++     * {@code 0} for {@code false}).
++     */
++    class BooleanPersistentDataType implements PersistentDataType<Byte, Boolean> {
++
++        @NotNull
++        @Override
++        public Class<Byte> getPrimitiveType() {
++            return Byte.class;
++        }
++
++        @NotNull
++        @Override
++        public Class<Boolean> getComplexType() {
++            return Boolean.class;
++        }
++
++        @NotNull
++        @Override
++        public Byte toPrimitive(@NotNull Boolean complex, @NotNull PersistentDataAdapterContext context) {
++            return (byte) (complex ? 1 : 0);
++        }
++
++        @NotNull
++        @Override
++        public Boolean fromPrimitive(@NotNull Byte primitive, @NotNull PersistentDataAdapterContext context) {
++            return primitive != 0;
++        }
++    }
++    // Paper end
+ }

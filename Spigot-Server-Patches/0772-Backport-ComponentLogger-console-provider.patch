@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:21:59 +0200
+Subject: [PATCH] Backport ComponentLogger console provider
+
+diff --git a/src/main/java/io/papermc/paper/adventure/PaperComponentLoggerProvider.java b/src/main/java/io/papermc/paper/adventure/PaperComponentLoggerProvider.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..7e6ba53f010bf8e1b0c7202584f620f84d3339a4
+--- /dev/null
++++ b/src/main/java/io/papermc/paper/adventure/PaperComponentLoggerProvider.java
+@@ -0,0 +1,18 @@
++package io.papermc.paper.adventure;
++
++import net.kyori.adventure.text.logger.slf4j.ComponentLogger;
++import net.kyori.adventure.text.logger.slf4j.ComponentLoggerProvider;
++import org.slf4j.LoggerFactory;
++
++/**
++ * Renders {@link net.kyori.adventure.text.Component Components} logged through a
++ * {@link ComponentLogger} to legacy section-sign strings so the server console
++ * appender can colourise them, instead of the plain-text fallback Adventure ships.
++ */
++public final class PaperComponentLoggerProvider implements ComponentLoggerProvider {
++
++    @Override
++    public ComponentLogger logger(final LoggerHelper helper, final String name) {
++        return helper.delegating(LoggerFactory.getLogger(name), PaperAdventure.LEGACY_SECTION_UXRC::serialize);
++    }
++}
+diff --git a/src/main/resources/META-INF/services/net.kyori.adventure.text.logger.slf4j.ComponentLoggerProvider b/src/main/resources/META-INF/services/net.kyori.adventure.text.logger.slf4j.ComponentLoggerProvider
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d5d7d23a25b4d549e86386323fb82591202b700
+--- /dev/null
++++ b/src/main/resources/META-INF/services/net.kyori.adventure.text.logger.slf4j.ComponentLoggerProvider
+@@ -0,0 +1 @@
++io.papermc.paper.adventure.PaperComponentLoggerProvider

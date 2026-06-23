@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:16:35 +0200
+Subject: [PATCH] Backport PrePlayerAttackEntityEvent
+
+diff --git a/src/main/java/io/papermc/paper/event/player/PrePlayerAttackEntityEvent.java b/src/main/java/io/papermc/paper/event/player/PrePlayerAttackEntityEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..0bb0b49c74c31b81950e4a56f132adccb50ea456
+--- /dev/null
++++ b/src/main/java/io/papermc/paper/event/player/PrePlayerAttackEntityEvent.java
+@@ -0,0 +1,80 @@
++package io.papermc.paper.event.player;
++
++import org.bukkit.entity.Entity;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.player.PlayerEvent;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Called when a player attempts to attack an entity, before any of the attack
++ * logic (damage, knockback, durability, etc.) runs.
++ * <p>
++ * This event will fire before {@link org.bukkit.event.entity.EntityDamageByEntityEvent}
++ * and gives plugins a chance to intercept the attack as early as possible.
++ * Note that this event may be called even when the attack will not actually do
++ * anything (for example because the target cannot be damaged); see
++ * {@link #willAttack()}.
++ * <p>
++ * Cancelling this event will prevent the attack from being processed.
++ */
++public class PrePlayerAttackEntityEvent extends PlayerEvent implements Cancellable {
++
++    private static final HandlerList HANDLER_LIST = new HandlerList();
++
++    private final Entity attacked;
++    private final boolean willAttack;
++
++    private boolean cancelled;
++
++    public PrePlayerAttackEntityEvent(@NotNull Player player, @NotNull Entity attacked, boolean willAttack) {
++        super(player);
++        this.attacked = attacked;
++        this.willAttack = willAttack;
++    }
++
++    /**
++     * Gets the entity that was attacked by the player.
++     *
++     * @return the attacked entity
++     */
++    @NotNull
++    public Entity getAttacked() {
++        return this.attacked;
++    }
++
++    /**
++     * Gets whether the attack will go through the regular attack logic, dealing
++     * damage and applying knockback to {@link #getAttacked()}.
++     * <p>
++     * If this returns {@code false}, cancelling this event has no further effect
++     * as the attack would not have done anything regardless.
++     *
++     * @return whether the entity will actually be attacked
++     */
++    public boolean willAttack() {
++        return this.willAttack;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return this.cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++
++    @NotNull
++    @Override
++    public HandlerList getHandlers() {
++        return HANDLER_LIST;
++    }
++
++    @NotNull
++    public static HandlerList getHandlerList() {
++        return HANDLER_LIST;
++    }
++}

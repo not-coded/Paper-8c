@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:16:35 +0200
+Subject: [PATCH] Backport Plugin#getComponentLogger
+
+diff --git a/src/main/java/org/bukkit/plugin/Plugin.java b/src/main/java/org/bukkit/plugin/Plugin.java
+index 79890c68f1ad31f951dfdbd9a16dac500ec58c40..6b1bd4a795406a533c1202a192251fc370e7462d 100644
+--- a/src/main/java/org/bukkit/plugin/Plugin.java
++++ b/src/main/java/org/bukkit/plugin/Plugin.java
+@@ -173,6 +173,21 @@ public interface Plugin extends TabExecutor {
+     }
+     // Paper end
+ 
++    // Paper start - Add ComponentLogger
++    /**
++     * Returns the {@link net.kyori.adventure.text.logger.slf4j.ComponentLogger ComponentLogger}
++     * associated with this plugin. Unlike {@link #getLogger()}, this logger can log
++     * {@link net.kyori.adventure.text.Component Components} directly, rendering colours and
++     * formatting to the console.
++     *
++     * @return the ComponentLogger associated with this plugin
++     */
++    @NotNull
++    default net.kyori.adventure.text.logger.slf4j.ComponentLogger getComponentLogger() {
++        return net.kyori.adventure.text.logger.slf4j.ComponentLogger.logger(getLogger().getName());
++    }
++    // Paper end
++
+     /**
+      * Returns the name of the plugin.
+      * <p>

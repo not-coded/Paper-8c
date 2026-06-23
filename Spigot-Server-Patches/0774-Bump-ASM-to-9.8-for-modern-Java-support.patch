@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:21:59 +0200
+Subject: [PATCH] Bump ASM to 9.8 for modern Java support
+
+diff --git a/pom.xml b/pom.xml
+index 48495ad71339c142a62839824a98c02011645207..d65aa099f02d5954fd16ad9317349f9d77d53bf7 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -98,7 +98,7 @@
+         <dependency>
+             <groupId>org.ow2.asm</groupId>
+             <artifactId>asm</artifactId>
+-            <version>9.1</version>
++            <version>9.8</version>
+             <scope>compile</scope>
+         </dependency>
+         <dependency>

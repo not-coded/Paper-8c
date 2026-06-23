@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Mon, 22 Jun 2026 19:16:35 +0200
+Subject: [PATCH] Update API dependencies: Adventure 4.13.1 + MiniMessage + ComponentLogger, checker-qual, ASM 9.8
+
+diff --git a/pom.xml b/pom.xml
+index 73fbd5d5a591871a3a386fb5c455cd96a3992e7a..a7522fdb63bf1f9eed2333670c1b98eb8e01f85f 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -22,7 +22,7 @@
+         <maven.compiler.source>1.8</maven.compiler.source>
+         <maven.compiler.target>1.8</maven.compiler.target>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+-        <adventure.version>4.7.0</adventure.version> <!-- Paper - When updating this make sure to update the linked JavaDocs on the homepage as well! -->
++        <adventure.version>4.13.1</adventure.version> <!-- Paper - When updating this make sure to update the linked JavaDocs on the homepage as well! -->
+     </properties>
+ 
+     <repositories>
+@@ -64,6 +64,19 @@
+             <groupId>net.kyori</groupId>
+             <artifactId>adventure-text-serializer-plain</artifactId>
+         </dependency>
++        <dependency>
++            <groupId>net.kyori</groupId>
++            <artifactId>adventure-text-minimessage</artifactId>
++        </dependency>
++        <dependency>
++            <groupId>net.kyori</groupId>
++            <artifactId>adventure-text-logger-slf4j</artifactId>
++        </dependency>
++        <dependency>
++            <groupId>org.checkerframework</groupId>
++            <artifactId>checker-qual</artifactId>
++            <version>3.33.0</version>
++        </dependency>
+         <!-- Paper end -->
+         <dependency>
+             <groupId>it.unimi.dsi</groupId>
+@@ -167,19 +180,19 @@
+         <dependency>
+             <groupId>org.ow2.asm</groupId>
+             <artifactId>asm-tree</artifactId>
+-            <version>9.1</version>
++            <version>9.8</version>
+             <scope>test</scope>
+         </dependency>
+         <!-- ASM -->
+         <dependency>
+             <groupId>org.ow2.asm</groupId>
+             <artifactId>asm</artifactId>
+-            <version>9.0</version>
++            <version>9.8</version>
+         </dependency>
+         <dependency>
+             <groupId>org.ow2.asm</groupId>
+             <artifactId>asm-commons</artifactId>
+-            <version>9.0</version>
++            <version>9.8</version>
+         </dependency>
+     </dependencies>
+ 
+@@ -285,6 +298,8 @@
+                         <link>https://jd.adventure.kyori.net/text-serializer-gson/${adventure.version}/</link>
+                         <link>https://jd.adventure.kyori.net/text-serializer-legacy/${adventure.version}/</link>
+                         <link>https://jd.adventure.kyori.net/text-serializer-plain/${adventure.version}/</link>
++                        <link>https://jd.adventure.kyori.net/text-minimessage/${adventure.version}/</link>
++                        <link>https://jd.adventure.kyori.net/text-logger-slf4j/${adventure.version}/</link>
+                         <!-- Paper end -->
+                     </links>
+                 </configuration>
