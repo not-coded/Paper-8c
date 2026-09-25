@@ -1089,7 +1089,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +
 +                if (this.h((Entity) entityliving) < (double) (f5 * f5)) {
 +                    entityliving.doKnockback(0.4F, (double) MathHelper.sin(this.yaw * 0.017453292F), (double) (-MathHelper.cos(this.yaw * 0.017453292F)), this); // Paper
-+                    entityliving.damageEntity(DamageSource.playerAttack(this).sweep(), f4);
++                    entityliving.damageEntity(DamageSource.playerAttack(this), f4);
 +                }
 +            }
 +        }
