@@ -83,3 +83,16 @@ index 635e07a6b0e255c4fdad58ba9d281c807af4e229..e52807afeda6a4bc1eb8bec457e6200c
      /**
       * Allows the Enchantment to be placed on tools (spades, pickaxe, axes)
       */
+diff --git a/src/main/java/org/bukkit/entity/HumanEntity.java b/src/main/java/org/bukkit/entity/HumanEntity.java
+--- a/src/main/java/org/bukkit/entity/HumanEntity.java
++++ b/src/main/java/org/bukkit/entity/HumanEntity.java
+@@ -306,5 +306,6 @@ public interface HumanEntity extends InventoryHolder, AnimalTamer, Permissible {
+-     * This is used to calculate damage, with 1.0 representing a fully charged
+-     * attack and 0.0 representing a non-charged attack
++     * This is used to calculate damage, with 0.0 representing a non-charged
++     * attack, 1.0 representing a fully charged attack, and 2.0 representing a
++     * charge of 200%.
+      *
+-     * @return A float between 0.0-1.0 representing the progress of the charge
++     * @return A float between 0.0-2.0 representing the progress of the charge
+      */

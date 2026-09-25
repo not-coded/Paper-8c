@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotCoded <66999075+not-coded@users.noreply.github.com>
+Date: Sat, 26 Sep 2026 00:19:53 +0200
+Subject: [PATCH] Make zero damage projectiles do knockback
+
+
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index 5dff733959663fe24aa0049afde6c7a2b8f61080..62f29eb550f7e450ccaaec74406abe0249611f4c 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -2056,7 +2056,7 @@ public abstract class EntityLiving extends Entity {
+ 
+                     return false;
+                 } else {
+-                    return originalDamage > 0;
++                    return originalDamage > 0 || damagesource.b();
+                 }
+                 // CraftBukkit end
+             }
