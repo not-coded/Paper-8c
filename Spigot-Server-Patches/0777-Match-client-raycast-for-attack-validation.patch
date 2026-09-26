@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Match client raycast for attack validation
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 17860c9bf6b20955c7da0f788d327ba2ea2d32c9..81746b294f19930577cc96f0440ff2a5528fce5a 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -403,6 +403,13 @@ public class PaperWorldConfig {
+         disableSprintInterruptionOnAttack = getBoolean("game-mechanics.disable-sprint-interruption-on-attack", false);
+     }
+ 
++    // Paper start - Match client attack raycast for attack validation
++    public boolean matchClientAttackRaycast;
++    private void matchClientAttackRaycast() {
++        matchClientAttackRaycast = getBoolean("game-mechanics.hit-registration.match-client-attack-raycast", true);
++    }
++    // Paper end - Match client attack raycast for attack validation
++
+     public boolean disableEnderpearlExploit = true;
+     private void disableEnderpearlExploit() {
+         disableEnderpearlExploit = getBoolean("game-mechanics.disable-unloaded-chunk-enderpearl-exploit", disableEnderpearlExploit);
+diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+index c07ce01ce604fe09414f409884ee9d385c5eaacc..a15f80bad1232eadb9115d40d9dd2562297db9f4 100644
+--- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+@@ -2344,7 +2344,15 @@ public class PlayerConnection implements PacketListenerPlayIn {
+             Vec3D vec3d1 = this.player.getEyePosition(0.0F);
+             Vec3D vec3d = new Vec3D(Math.max(axisalignedbb.minX, Math.min(vec3d1.x, axisalignedbb.maxX)), Math.max(axisalignedbb.minY, Math.min(vec3d1.y, axisalignedbb.maxY)), Math.max(axisalignedbb.minZ, Math.min(vec3d1.z, axisalignedbb.maxZ)));
+ 
+-            if (vec3d1.distanceSquared(vec3d) < d1) {
++            boolean attack = packetplayinuseentity.b() == PacketPlayInUseEntity.EnumEntityUseAction.ATTACK;
++            boolean withinReach = vec3d1.distanceSquared(vec3d) < d1;
++            // Paper start - Match client attack raycast for attack validation
++            if (attack && this.player.getWorldServer().paperConfig.matchClientAttackRaycast) {
++                withinReach = this.matchesClientAttackRaycast(entity, d0);
++            }
++            // Paper end - Match client attack raycast for attack validation
++
++            if (withinReach) {
+                 EnumHand enumhand = packetplayinuseentity.c();
+                 ItemStack itemstack = enumhand != null ? this.player.b(enumhand).cloneItemStack() : ItemStack.b;
+                 Optional<EnumInteractionResult> optional = Optional.empty();
+@@ -2852,6 +2860,43 @@ public class PlayerConnection implements PacketListenerPlayIn {
+         }
+     }
+ 
++    // Paper start - Match client attack raycast for attack validation
++    private boolean matchesClientAttackRaycast(Entity target, double reach) {
++        Vec3D start = this.player.getEyePosition(1.0F);
++        Vec3D direction = this.player.getLookDirection();
++        Vec3D end = start.add(direction.x * reach, direction.y * reach, direction.z * reach);
++        AxisAlignedBB searchBox = this.player.getBoundingBox()
++            .expand(direction.x * reach, direction.y * reach, direction.z * reach)
++            .grow(1.0D, 1.0D, 1.0D);
++
++        Entity closestEntity = null;
++        Vec3D closestHit = null;
++        double closestDistance = Double.MAX_VALUE;
++        for (Entity candidate : this.player.world.getEntities(this.player, searchBox, entity -> !entity.isSpectator() && entity.isInteractable())) {
++            AxisAlignedBB candidateBox = candidate.getBoundingBox().grow((double) candidate.getCollisionBorderSize());
++            Optional<Vec3D> hit = candidateBox.calculateIntercept(start, end);
++            if (!hit.isPresent() && !candidateBox.contains(start)) {
++                continue;
++            }
++
++            Vec3D hitPosition = hit.orElse(start);
++            double distance = start.distanceSquared(hitPosition);
++            if (distance < closestDistance) {
++                closestEntity = candidate;
++                closestHit = hitPosition;
++                closestDistance = distance;
++            }
++        }
++
++        if (closestEntity != target || closestHit == null) {
++            return false;
++        }
++
++        MovingObjectPosition blockHit = this.player.world.rayTrace(new RayTrace(start, closestHit, RayTrace.BlockCollisionOption.COLLIDER, RayTrace.FluidCollisionOption.NONE, this.player));
++        return blockHit.getType() == MovingObjectPosition.EnumMovingObjectType.MISS;
++    }
++    // Paper end - Match client attack raycast for attack validation
++
+     @Override
+     public void a(PacketPlayInEnchantItem packetplayinenchantitem) {
+         PlayerConnectionUtils.ensureMainThread(packetplayinenchantitem, this, this.player.getWorldServer());

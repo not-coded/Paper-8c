@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Add config to disable eating interruption
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 81746b294f19930577cc96f0440ff2a5528fce5a..c9c391c297ff2f3d9f14223d66e48b5868199d7b 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -410,6 +410,13 @@ public class PaperWorldConfig {
+     }
+     // Paper end - Match client attack raycast for attack validation
+ 
++    // Paper start - Configure eating interruption
++    public boolean disableEatingInterruption;
++    private void disableEatingInterruption() {
++        disableEatingInterruption = getBoolean("game-mechanics.disable-eating-interruption", false);
++    }
++    // Paper end - Configure eating interruption
++
+     public boolean disableEnderpearlExploit = true;
+     private void disableEnderpearlExploit() {
+         disableEnderpearlExploit = getBoolean("game-mechanics.disable-unloaded-chunk-enderpearl-exploit", disableEnderpearlExploit);
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index 3018ccec86e3c7265667161954205aa26dd4b99c..d8d1b02c8ed819ce13405cf1c4bc45a069d3110f 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -1295,9 +1295,11 @@ public abstract class EntityLiving extends Entity {
+             if (entity1 != null) {
+                 if (entity1 instanceof EntityLiving) {
+                     this.setLastDamager((EntityLiving) entity1);
+-                    if (this.isHandRaised() && (this.getActiveItem().l() == EnumAnimation.EAT || this.getActiveItem().l() == EnumAnimation.DRINK)) {
++                    // Paper start - Configure eating interruption
++                    if (!this.world.paperConfig.disableEatingInterruption && this.isHandRaised() && (this.getActiveItem().l() == EnumAnimation.EAT || this.getActiveItem().l() == EnumAnimation.DRINK)) {
+                         this.clearActiveItem();
+                     }
++                    // Paper end - Configure eating interruption
+                 }
+ 
+                 if (entity1 instanceof EntityHuman) {

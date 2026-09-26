@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:44:19 +0200
+Subject: [PATCH] Fix MC-202432: Absorption effect does not go away even after the hearts are gone
+
+
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index 19e94da7a122e22a22a676f3814349122f11432b..f9e5972f0aa9bf7f69073bf00990113f89648318 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -813,9 +813,16 @@ public abstract class EntityLiving extends Entity {
+                 MobEffectList mobeffectlist = (MobEffectList) iterator.next();
+                 MobEffect mobeffect = (MobEffect) this.effects.get(mobeffectlist);
+ 
+-                if (!mobeffect.tick(this, () -> {
++                boolean effectActive = mobeffect.tick(this, () -> {
+                     this.a(mobeffect, true);
+-                })) {
++                });
++                // Paper start - Remove absorption effect when hearts are depleted
++                if (effectActive && !this.world.isClientSide && mobeffect.getMobEffect() == MobEffects.ABSORBTION && this.getAbsorptionHearts() <= 0.0F) {
++                    this.effectsToProcess.add(new ProcessableEffect(mobeffectlist, EntityPotionEffectEvent.Cause.UNKNOWN));
++                }
++                // Paper end - Remove absorption effect when hearts are depleted
++
++                if (!effectActive) {
+                     if (!this.world.isClientSide) {
+                         // CraftBukkit start
+                         EntityPotionEffectEvent event = CraftEventFactory.callEntityPotionEffectChangeEvent(this, mobeffect, null, org.bukkit.event.entity.EntityPotionEffectEvent.Cause.EXPIRATION);

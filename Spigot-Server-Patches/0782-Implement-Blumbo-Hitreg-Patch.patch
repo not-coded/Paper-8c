@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Implement Blumbo's Hitreg Patch
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 37886cb78df0a5adeefa8061c6069f4463428fec..f1f14890e0629f2054584563b54f074e68b17400 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -432,6 +432,15 @@ public class PaperWorldConfig {
+     }
+     // Paper end - Use explosion origin for shield blocking
+ 
++    // Paper start - Configure hitreg
++    public boolean usePreviousPositions;
++    public int savedLocationTicks;
++    private void usePreviousPositions() {
++        usePreviousPositions = getBoolean("game-mechanics.hit-registration.use-previous-positions", false);
++        savedLocationTicks = Math.max(1, Math.min(20, getInt("game-mechanics.hit-registration.saved-location-ticks", 8)));
++    }
++    // Paper end - Configure hitreg
++
+     // Paper start - Configure eating interruption
+     public boolean disableEatingInterruption;
+     private void disableEatingInterruption() {
+diff --git a/src/main/java/net/minecraft/server/level/EntityPlayer.java b/src/main/java/net/minecraft/server/level/EntityPlayer.java
+index d180fb9c7db14afb233d94ef4122e0e3fb728ae8..64a1a882b0726d8313f8f67fc0ea194de31bac28 100644
+--- a/src/main/java/net/minecraft/server/level/EntityPlayer.java
++++ b/src/main/java/net/minecraft/server/level/EntityPlayer.java
+@@ -184,6 +184,11 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
+     public final MinecraftServer server;
+     public final PlayerInteractManager playerInteractManager;
+     public final Deque<Integer> removeQueue = new ArrayDeque<>(); // Paper
++    // Paper start - Record player hitboxes for hitreg
++    private final Deque<AxisAlignedBB> previousPositions = new ArrayDeque<>();
++    @Nullable
++    private World previousPositionsWorld;
++    // Paper end - Record player hitboxes for hitreg
+     private final AdvancementDataPlayer advancementDataPlayer;
+     private final ServerStatisticManager serverStatisticManager;
+     private float lastHealthScored = Float.MIN_VALUE;
+@@ -656,6 +661,9 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
+         try {
+             if (valid && !this.isSpectator() || this.world.isLoaded(this.getChunkCoordinates())) { // Paper - don't tick dead players that are not in the world currently (pending respawn)
+                 super.tick();
++                // Paper start - Record player hitboxes for hitreg
++                this.setPosition();
++                // Paper end - Record player hitboxes for hitreg
+             }
+             if (valid && isAlive() && playerConnection != null) ((WorldServer)world).getChunkProvider().playerChunkMap.checkHighPriorityChunks(this); // Paper
+ 
+@@ -742,6 +750,52 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
+         }
+     }
+ 
++    // Paper start - Record player hitboxes for hitreg
++    private void setPosition() {
++        if (!this.world.paperConfig.usePreviousPositions) {
++            this.previousPositions.clear();
++            this.previousPositionsWorld = this.world;
++            return;
++        }
++
++        if (this.previousPositionsWorld != this.world) {
++            this.previousPositions.clear();
++            this.previousPositionsWorld = this.world;
++        }
++
++        this.previousPositions.addFirst(this.getBoundingBox());
++        while (this.previousPositions.size() > this.world.paperConfig.savedLocationTicks) {
++            this.previousPositions.removeLast();
++        }
++    }
++
++    @Nullable
++    public Vec3D getPreviousPositionHit(Vec3D start, Vec3D end) {
++        if (this.previousPositionsWorld != this.world) {
++            return null;
++        }
++
++        Vec3D closestHit = null;
++        double closestDistance = Double.MAX_VALUE;
++        for (AxisAlignedBB previousPosition : this.previousPositions) {
++            AxisAlignedBB expandedHitbox = previousPosition.grow((double) this.getCollisionBorderSize());
++            Optional<Vec3D> hit = expandedHitbox.calculateIntercept(start, end);
++            if (!hit.isPresent() && !expandedHitbox.contains(start)) {
++                continue;
++            }
++
++            Vec3D hitPosition = hit.orElse(start);
++            double distance = start.distanceSquared(hitPosition);
++            if (distance < closestDistance) {
++                closestHit = hitPosition;
++                closestDistance = distance;
++            }
++        }
++
++        return closestHit;
++    }
++    // Paper end - Record player hitboxes for hitreg
++
+     private void a(IScoreboardCriteria iscoreboardcriteria, int i) {
+         // CraftBukkit - Use our scores instead
+         this.world.getServer().getScoreboardManager().getScoreboardScores(iscoreboardcriteria, this.getName(), (scoreboardscore) -> {
+diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+index cd455c74c010c329cde508f2bcfe7569f9cbd9bf..61d6eb2cea708f5e53ee0c06a5975046c502b629 100644
+--- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+@@ -2347,7 +2347,7 @@ public class PlayerConnection implements PacketListenerPlayIn {
+             boolean attack = packetplayinuseentity.b() == PacketPlayInUseEntity.EnumEntityUseAction.ATTACK;
+             boolean withinReach = vec3d1.distanceSquared(vec3d) < d1;
+             // Paper start - Match client attack raycast for attack validation
+-            if (attack && this.player.getWorldServer().paperConfig.matchClientAttackRaycast) {
++            if (attack && (this.player.getWorldServer().paperConfig.matchClientAttackRaycast || this.player.getWorldServer().paperConfig.usePreviousPositions)) {
+                 withinReach = this.matchesClientAttackRaycast(entity, d0);
+             }
+             // Paper end - Match client attack raycast for attack validation
+@@ -2888,12 +2888,24 @@ public class PlayerConnection implements PacketListenerPlayIn {
+             }
+         }
+ 
+-        if (closestEntity != target || closestHit == null) {
+-            return false;
++        if (closestEntity == target && closestHit != null) {
++            MovingObjectPosition blockHit = this.player.world.rayTrace(new RayTrace(start, closestHit, RayTrace.BlockCollisionOption.COLLIDER, RayTrace.FluidCollisionOption.NONE, this.player));
++            if (blockHit.getType() == MovingObjectPosition.EnumMovingObjectType.MISS) {
++                return true;
++            }
++        }
++
++        // Paper start - Check recent player hitboxes for hitreg
++        if (this.player.getWorldServer().paperConfig.usePreviousPositions && target instanceof EntityPlayer && !target.isSpectator() && target.isInteractable()) {
++            Vec3D previousPositionHit = ((EntityPlayer) target).getPreviousPositionHit(start, end);
++            if (previousPositionHit != null) {
++                MovingObjectPosition blockHit = this.player.world.rayTrace(new RayTrace(start, previousPositionHit, RayTrace.BlockCollisionOption.COLLIDER, RayTrace.FluidCollisionOption.NONE, this.player));
++                return blockHit.getType() == MovingObjectPosition.EnumMovingObjectType.MISS;
++            }
+         }
++        // Paper end - Check recent player hitboxes for hitreg
+ 
+-        MovingObjectPosition blockHit = this.player.world.rayTrace(new RayTrace(start, closestHit, RayTrace.BlockCollisionOption.COLLIDER, RayTrace.FluidCollisionOption.NONE, this.player));
+-        return blockHit.getType() == MovingObjectPosition.EnumMovingObjectType.MISS;
++        return false;
+     }
+     // Paper end - Match client attack raycast for attack validation
+ 

@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Use explosion origin for shield blocking
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 3d56bf19cfe4af035ea5b62a36ab243f06550c4b..37886cb78df0a5adeefa8061c6069f4463428fec 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -425,6 +425,13 @@ public class PaperWorldConfig {
+     }
+     // Paper end - Configure player hit invulnerability reduction
+ 
++    // Paper start - Use explosion origin for shield blocking
++    public boolean useExplosionOriginForShieldBlocking;
++    private void useExplosionOriginForShieldBlocking() {
++        useExplosionOriginForShieldBlocking = getBoolean("game-mechanics.use-explosion-origin-for-shield-blocking", true);
++    }
++    // Paper end - Use explosion origin for shield blocking
++
+     // Paper start - Configure eating interruption
+     public boolean disableEatingInterruption;
+     private void disableEatingInterruption() {
+diff --git a/src/main/java/net/minecraft/world/damagesource/DamageSource.java b/src/main/java/net/minecraft/world/damagesource/DamageSource.java
+index 6f4b9524b2da3bb882bec13bfe4c9833a314a6b8..74c32aa75c5431df25e9321a8325c63103a14d99 100644
+--- a/src/main/java/net/minecraft/world/damagesource/DamageSource.java
++++ b/src/main/java/net/minecraft/world/damagesource/DamageSource.java
+@@ -46,6 +46,20 @@ public class DamageSource {
+     private boolean D;
+     private boolean E;
+     public final String translationIndex;
++    // Paper start - Preserve explosion origin for shield blocking
++    @Nullable
++    private Vec3D damagePosition;
++
++    @Nullable
++    public Vec3D getDamagePosition() {
++        return this.damagePosition;
++    }
++
++    public DamageSource setDamagePosition(@Nullable Vec3D damagePosition) {
++        this.damagePosition = damagePosition;
++        return this;
++    }
++    // Paper end - Preserve explosion origin for shield blocking
+     // CraftBukkit start
+     private boolean sweep;
+ 
+@@ -109,7 +123,8 @@ public class DamageSource {
+     }
+ 
+     public static DamageSource explosion(@Nullable Explosion explosion) {
+-        return d(explosion != null ? explosion.getSource() : null);
++        DamageSource damagesource = d(explosion != null ? explosion.getSource() : null);
++        return explosion != null ? damagesource.setDamagePosition(explosion.getPositionVector()) : damagesource;
+     }
+ 
+     public static DamageSource d(@Nullable EntityLiving entityliving) {
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index 007b8a96626ad41bb10e2f7f097cf1131b85e6d2..19e94da7a122e22a22a676f3814349122f11432b 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -1508,7 +1508,9 @@ public abstract class EntityLiving extends Entity {
+         }
+ 
+         if (!damagesource.ignoresArmor() && this.isBlocking() && !flag) {
+-            Vec3D vec3d = damagesource.w();
++            // Paper start - Use explosion origin for shield blocking
++            Vec3D vec3d = damagesource.isExplosion() && this.world.paperConfig.useExplosionOriginForShieldBlocking && damagesource.getDamagePosition() != null ? damagesource.getDamagePosition() : damagesource.w();
++            // Paper end - Use explosion origin for shield blocking
+ 
+             if (vec3d != null) {
+                 Vec3D vec3d1 = this.f(1.0F);
+diff --git a/src/main/java/net/minecraft/world/level/Explosion.java b/src/main/java/net/minecraft/world/level/Explosion.java
+index 79008bda42558ea7d28ccf51b66405a3bdb52da7..7cdccecbc1542bd50c351f06e5753a664d354ef3 100644
+--- a/src/main/java/net/minecraft/world/level/Explosion.java
++++ b/src/main/java/net/minecraft/world/level/Explosion.java
+@@ -394,6 +394,12 @@ public class Explosion {
+         return this.k;
+     }
+ 
++    // Paper start - Preserve explosion origin for shield blocking
++    public Vec3D getPositionVector() {
++        return new Vec3D(this.posX, this.posY, this.posZ);
++    }
++    // Paper end - Preserve explosion origin for shield blocking
++
+     public Map<EntityHuman, Vec3D> c() {
+         return this.n;
+     }

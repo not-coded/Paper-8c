@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Make attack reach padding configurable
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index c9c391c297ff2f3d9f14223d66e48b5868199d7b..c06dbc737a70b3e0080ca53553737d6c16009b42 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -410,6 +410,14 @@ public class PaperWorldConfig {
+     }
+     // Paper end - Match client attack raycast for attack validation
+ 
++    // Paper start - Configure attack reach padding
++    public double attackReachPadding;
++    private void attackReachPadding() {
++        double configuredPadding = getDouble("game-mechanics.hit-registration.attack-reach-padding", 0.25D);
++        attackReachPadding = Double.isFinite(configuredPadding) ? Math.max(0.0D, configuredPadding) : 0.25D;
++    }
++    // Paper end - Configure attack reach padding
++
+     // Paper start - Configure eating interruption
+     public boolean disableEatingInterruption;
+     private void disableEatingInterruption() {
+diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+index a15f80bad1232eadb9115d40d9dd2562297db9f4..cd455c74c010c329cde508f2bcfe7569f9cbd9bf 100644
+--- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
+@@ -2338,7 +2338,7 @@ public class PlayerConnection implements PacketListenerPlayIn {
+         this.player.setSneaking(packetplayinuseentity.e());
+         if (entity != null) {
+             boolean flag = this.player.hasLineOfSight(entity);
+-            double d0 = this.player.getCurrentAttackReach(1.0F) + 0.25D;
++            double d0 = this.player.getCurrentAttackReach(1.0F) + this.player.getWorldServer().paperConfig.attackReachPadding;
+             double d1 = flag ? d0 * d0 : 6.25D;
+             AxisAlignedBB axisalignedbb = entity.getBoundingBox();
+             Vec3D vec3d1 = this.player.getEyePosition(0.0F);
