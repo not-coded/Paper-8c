@@ -1,10 +1,11 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:21:59 +0200
 Subject: [PATCH] Allow running on modern Java
 
+
 diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
-index ecd1f0784493dfc758483b7912ce086c3b0d7aa0..dbeea8398d1efb6c77bda752dcdb5fe6fee866ea 100644
+index ecd1f0784493dfc758483b7912ce086c3b0d7aa0..3593cdce818cbe11b7428e3ec0c77431e693d976 100644
 --- a/src/main/java/org/bukkit/craftbukkit/Main.java
 +++ b/src/main/java/org/bukkit/craftbukkit/Main.java
 @@ -217,11 +217,6 @@ public class Main {

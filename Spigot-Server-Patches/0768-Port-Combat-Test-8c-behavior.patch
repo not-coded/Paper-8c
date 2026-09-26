@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 18 May 2026 21:55:43 +0200
 Subject: [PATCH] Port Combat Test 8c
 
@@ -10,12 +10,12 @@ index d5d6c545182b9b0b6aa5e52f1f9858450a17038e..24072f2e2e177ab8f747520989efaecd
 +++ b/src/main/java/net/minecraft/SharedConstants.java
 @@ -46,7 +46,7 @@ public class SharedConstants {
      }
-
+ 
      public static int b() {
 -        return 754;
 +        return 803;
      }
-
+ 
      static {
 diff --git a/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java b/src/main/java/net/minecraft/core/dispenser/IDispenseBehavior.java
 index 0055a96b51a1d38d31e129c417c97bcfc9d0b745..1aeb5540acd6d2ecb7f44d9261c5c67bbb9865c7 100644
@@ -59,16 +59,16 @@ index 2b8358995e4933d3fc3498407a7df7475d7b7e26..0eb81474a4ca5aa4d2178b4617b96b2b
  import net.minecraft.network.protocol.Packet;
 +import net.minecraft.world.EnumHand;
  import net.minecraft.world.item.ItemStack;
-
+ 
  public class PacketPlayInBEdit implements Packet<PacketListenerPlayIn> {
-
+ 
      private ItemStack a; public ItemStack getBook() { return a; } // Paper - OBFHELPER
      private boolean b;
 -    private int c;
 +    private EnumHand c;
-
+ 
      public PacketPlayInBEdit() {}
-
+ 
 @@ -17,14 +18,14 @@ public class PacketPlayInBEdit implements Packet<PacketListenerPlayIn> {
      public void a(PacketDataSerializer packetdataserializer) throws IOException {
          this.a = packetdataserializer.n();
@@ -76,7 +76,7 @@ index 2b8358995e4933d3fc3498407a7df7475d7b7e26..0eb81474a4ca5aa4d2178b4617b96b2b
 -        this.c = packetdataserializer.i();
 +        this.c = (EnumHand) packetdataserializer.a(EnumHand.class);
      }
-
+ 
      @Override
      public void b(PacketDataSerializer packetdataserializer) throws IOException {
          packetdataserializer.a(this.a);
@@ -84,12 +84,12 @@ index 2b8358995e4933d3fc3498407a7df7475d7b7e26..0eb81474a4ca5aa4d2178b4617b96b2b
 -        packetdataserializer.d(this.c);
 +        packetdataserializer.a(this.c);
      }
-
+ 
      public void a(PacketListenerPlayIn packetlistenerplayin) {
 @@ -39,7 +40,7 @@ public class PacketPlayInBEdit implements Packet<PacketListenerPlayIn> {
          return this.b;
      }
-
+ 
 -    public int d() {
 +    public EnumHand d() {
          return this.c;
@@ -104,16 +104,16 @@ index f47cd43f96f61475bd1d5da11bdbc7c5e5f7e1bc..111dd4880b7e9d564da1824f2e3d1110
      private int e;
      private EnumMainHand f;
 +    private boolean g;
-
+ 
      public PacketPlayInSettings() {}
-
+ 
 @@ -25,6 +26,7 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
          this.d = packetdataserializer.readBoolean();
          this.e = packetdataserializer.readUnsignedByte();
          this.f = (EnumMainHand) packetdataserializer.a(EnumMainHand.class);
 +        this.g = packetdataserializer.readBoolean();
      }
-
+ 
      @Override
 @@ -35,6 +37,7 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
          packetdataserializer.writeBoolean(this.d);
@@ -121,7 +121,7 @@ index f47cd43f96f61475bd1d5da11bdbc7c5e5f7e1bc..111dd4880b7e9d564da1824f2e3d1110
          packetdataserializer.a((Enum) this.f);
 +        packetdataserializer.writeBoolean(this.g);
      }
-
+ 
      public void a(PacketListenerPlayIn packetlistenerplayin) {
 @@ -59,4 +62,8 @@ public class PacketPlayInSettings implements Packet<PacketListenerPlayIn> {
      public EnumMainHand getMainHand() {
@@ -139,22 +139,22 @@ index ce63f3e5ac4d1a4311c0ebeb7574d999d45987d9..e965147074de5dcdb871e8cb1bbb195b
 @@ -17,7 +17,10 @@ public class PacketPlayInUseEntity implements Packet<PacketListenerPlayIn> {
      private EnumHand d;
      private boolean e;
-
+ 
 -    public PacketPlayInUseEntity() {}
 +    public PacketPlayInUseEntity() {
 +        this.a = 0;
 +        this.action = PacketPlayInUseEntity.EnumEntityUseAction.AIR_SWING;
 +    }
-
+ 
      @Override
      public void a(PacketDataSerializer packetdataserializer) throws IOException {
 @@ -79,7 +82,7 @@ public class PacketPlayInUseEntity implements Packet<PacketListenerPlayIn> {
-
+ 
      public static enum EnumEntityUseAction {
-
+ 
 -        INTERACT, ATTACK, INTERACT_AT;
 +        INTERACT, ATTACK, INTERACT_AT, AIR_SWING;
-
+ 
          private EnumEntityUseAction() {}
      }
 diff --git a/src/main/java/net/minecraft/server/commands/CommandEnchant.java b/src/main/java/net/minecraft/server/commands/CommandEnchant.java
@@ -260,7 +260,7 @@ index 75bcfb3a2b4a104aeebb2fe3298714b2e5b569d2..d180fb9c7db14afb233d94ef4122e0e3
 --- a/src/main/java/net/minecraft/server/level/EntityPlayer.java
 +++ b/src/main/java/net/minecraft/server/level/EntityPlayer.java
 @@ -1873,6 +1873,7 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
-
+ 
      public String locale = null; // CraftBukkit - add, lowercase // Paper - default to null
      public java.util.Locale adventure$locale = java.util.Locale.US; // Paper
 +    protected boolean enableShieldOnCrouch = true;
@@ -278,7 +278,7 @@ index 75bcfb3a2b4a104aeebb2fe3298714b2e5b569d2..d180fb9c7db14afb233d94ef4122e0e3
 +    public boolean hasEnabledShieldOnCrouch() {
 +        return this.enableShieldOnCrouch;
      }
-
+ 
      public EnumChatVisibility getChatFlags() {
 @@ -2036,7 +2043,6 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
      @Override
@@ -286,7 +286,7 @@ index 75bcfb3a2b4a104aeebb2fe3298714b2e5b569d2..d180fb9c7db14afb233d94ef4122e0e3
          super.swingHand(enumhand);
 -        this.resetAttackCooldown();
      }
-
+ 
      public boolean H() {
 diff --git a/src/main/java/net/minecraft/server/level/PlayerInteractManager.java b/src/main/java/net/minecraft/server/level/PlayerInteractManager.java
 index 87722285690d9d3370610e2a2eb809e0d1f497c9..09f598fbed10de0441a56b2cbfd04fa204dc9b35 100644
@@ -298,7 +298,7 @@ index 87722285690d9d3370610e2a2eb809e0d1f497c9..09f598fbed10de0441a56b2cbfd04fa2
          } else {
 +            this.player.resetAttackCooldown(false);
              IBlockData iblockdata;
-
+ 
              if (packetplayinblockdig_enumplayerdigtype == PacketPlayInBlockDig.EnumPlayerDigType.START_DESTROY_BLOCK) {
 diff --git a/src/main/java/net/minecraft/server/network/HandshakeListener.java b/src/main/java/net/minecraft/server/network/HandshakeListener.java
 index 82540af8170f0b8cb52b13061ae8f956f1a6e46f..c8a106b584889f4fb81afd7b45016109c5c32094 100644
@@ -307,7 +307,7 @@ index 82540af8170f0b8cb52b13061ae8f956f1a6e46f..c8a106b584889f4fb81afd7b45016109
 @@ -81,7 +81,7 @@ public class HandshakeListener implements PacketHandshakingInListener {
                  if (packethandshakinginsetprotocol.c() != SharedConstants.getGameVersion().getProtocolVersion()) {
                      IChatBaseComponent chatmessage; // Paper - Fix hex colors not working in some kick messages
-
+ 
 -                    if (packethandshakinginsetprotocol.c() < 754) {
 +                    if (packethandshakinginsetprotocol.c() < SharedConstants.getGameVersion().getProtocolVersion()) {
                          chatmessage = org.bukkit.craftbukkit.util.CraftChatMessage.fromString( java.text.MessageFormat.format( org.spigotmc.SpigotConfig.outdatedClientMessage.replaceAll("'", "''"), SharedConstants.getGameVersion().getName() ) , true )[0]; // Spigot // Paper - Fix hex colors not working in some kick messages
@@ -320,7 +320,7 @@ index 7044620e7fb5874913e7911adb606668a76ac0de..71cdc9af5ae6dbad50f6aa2a1ed65ab5
 @@ -1137,7 +1137,8 @@ public class PlayerConnection implements PacketListenerPlayIn {
                      list.add(nbttaglist.getString(i));
                  }
-
+ 
 -                int i = packetplayinbedit.d();
 +                EnumHand hand = packetplayinbedit.d();
 +                int i = hand == EnumHand.MAIN_HAND ? this.player.inventory.itemInHandIndex : 40;
@@ -352,7 +352,7 @@ index 7044620e7fb5874913e7911adb606668a76ac0de..71cdc9af5ae6dbad50f6aa2a1ed65ab5
 +                } else if (packetplayinuseentity.b() == PacketPlayInUseEntity.EnumEntityUseAction.AIR_SWING) {
 +                    this.player.attackAir();
                  }
-
+ 
                  if (optional.isPresent() && ((EnumInteractionResult) optional.get()).a()) {
 @@ -2429,11 +2437,15 @@ public class PlayerConnection implements PacketListenerPlayIn {
          }
@@ -443,12 +443,12 @@ index e6bf78f46acc37d9515d58cec3587e236ac0733c..6f4b9524b2da3bb882bec13bfe4c9833
 @@ -71,7 +71,7 @@ public class DamageSource {
          return new EntityDamageSourceIndirect("mob", entity, entityliving);
      }
-
+ 
 -    public static DamageSource playerAttack(EntityHuman entityhuman) {
 +    public static EntityDamageSource playerAttack(EntityHuman entityhuman) {
          return new EntityDamageSource("player", entityhuman);
      }
-
+ 
 diff --git a/src/main/java/net/minecraft/world/damagesource/EntityDamageSource.java b/src/main/java/net/minecraft/world/damagesource/EntityDamageSource.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..412a7580b50eae0b1e00a5d6bfdbe4d3f786a788
@@ -543,7 +543,7 @@ index 6dbd54c44ac88025464f78e72069c538d9f43dc3..88611bc8023673f82810fd18beb986a5
 -            entityliving.heal((float) Math.max(4 << i, 0), RegainReason.MAGIC); // CraftBukkit
 +            entityliving.heal((float) Math.max(6 << i, 0), RegainReason.MAGIC); // CraftBukkit
          }
-
+ 
      }
 @@ -101,7 +101,7 @@ public class MobEffectList {
                  }
@@ -553,7 +553,7 @@ index 6dbd54c44ac88025464f78e72069c538d9f43dc3..88611bc8023673f82810fd18beb986a5
 +            j = (int) (d0 * (double) (6 << i) + 0.5D);
              entityliving.heal((float) j, RegainReason.MAGIC); // CraftBukkit
          }
-
+ 
 diff --git a/src/main/java/net/minecraft/world/effect/MobEffects.java b/src/main/java/net/minecraft/world/effect/MobEffects.java
 index f09f19b80f3bf641d0cfab89c1cbb98fcd814f6a..efce71b35d2a1309e122c308cc41cf204e7638e9 100644
 --- a/src/main/java/net/minecraft/world/effect/MobEffects.java
@@ -581,7 +581,7 @@ index 0ec3589df774af366a896b8dc257f138e94e6e18..e9fef97da706181410dcb18999a59191
 --- a/src/main/java/net/minecraft/world/entity/Entity.java
 +++ b/src/main/java/net/minecraft/world/entity/Entity.java
 @@ -2276,6 +2276,10 @@ public abstract class Entity implements INamableTileEntity, ICommandListener, ne
-
+ 
      public final float getCollisionBorderSize() { return bg(); } // Paper - OBFHELPER
      public float bg() {
 +        float f = Math.max(this.getWidth(), this.getHeight());
@@ -590,36 +590,36 @@ index 0ec3589df774af366a896b8dc257f138e94e6e18..e9fef97da706181410dcb18999a59191
 +        }
          return 0.0F;
      }
-
+ 
 diff --git a/src/main/java/net/minecraft/world/entity/EntityInsentient.java b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
 index 6c024a5fdd290e5eb219e677e28718d663b72f25..d0227b4758446dc14a2718b001cc01a2e188a830 100644
 --- a/src/main/java/net/minecraft/world/entity/EntityInsentient.java
 +++ b/src/main/java/net/minecraft/world/entity/EntityInsentient.java
 @@ -1574,7 +1574,7 @@ public abstract class EntityInsentient extends EntityLiving {
          float f1 = (float) this.b(GenericAttributes.ATTACK_KNOCKBACK);
-
+ 
          if (entity instanceof EntityLiving) {
 -            f += EnchantmentManager.a(this.getItemInMainHand(), ((EntityLiving) entity).getMonsterType());
 +            f += EnchantmentManager.a(this.getItemInMainHand(), (EntityLiving) entity);
              f1 += (float) EnchantmentManager.b((EntityLiving) this);
          }
-
+ 
 @@ -1599,11 +1599,6 @@ public abstract class EntityInsentient extends EntityLiving {
                  this.setMot(this.getMot().d(0.6D, 1.0D, 0.6D));
              }
-
+ 
 -            if (entity instanceof EntityHuman) {
 -                EntityHuman entityhuman = (EntityHuman) entity;
 -
 -                this.a(entityhuman, this.getItemInMainHand(), entityhuman.isHandRaised() ? entityhuman.getActiveItem() : ItemStack.b);
 -            }
-
+ 
              this.a((EntityLiving) this, entity);
              this.z(entity);
 @@ -1612,18 +1607,6 @@ public abstract class EntityInsentient extends EntityLiving {
          return flag;
      }
-
+ 
 -    private void a(EntityHuman entityhuman, ItemStack itemstack, ItemStack itemstack1) {
 -        if (!itemstack.isEmpty() && !itemstack1.isEmpty() && itemstack.getItem() instanceof ItemAxe && itemstack1.getItem() == Items.SHIELD) {
 -            float f = 0.25F + (float) EnchantmentManager.getDigSpeedEnchantmentLevel(this) * 0.05F;
@@ -659,7 +659,7 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
 @@ -1242,7 +1245,16 @@ public abstract class EntityLiving extends Entity {
              this.av = 1.5F;
              boolean flag1 = true;
-
+ 
 -            if ((float) this.noDamageTicks > (float) this.maxNoDamageTicks / 2.0F) { // CraftBukkit - restore use of maxNoDamageTicks
 +            int i = 10;
 +            Entity entity = damagesource.getEntity();
@@ -691,10 +691,10 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
 +                        this.clearActiveItem();
 +                    }
                  }
-
+ 
                  if (entity1 instanceof EntityHuman) {
 @@ -1394,6 +1409,14 @@ public abstract class EntityLiving extends Entity {
-
+ 
      protected void e(EntityLiving entityliving) {
          entityliving.doKnockback(0.5F, entityliving.locX() - this.locX(), entityliving.locZ() - this.locZ(), this); // Paper
 +        if (this.getItemInMainHand().getItem() instanceof net.minecraft.world.item.ItemAxe) {
@@ -706,14 +706,14 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
 +    public boolean disableShield(float f) {
 +        return false;
      }
-
+ 
      private boolean f(DamageSource damagesource) {
 @@ -1482,11 +1505,15 @@ public abstract class EntityLiving extends Entity {
-
+ 
              if (vec3d != null) {
                  Vec3D vec3d1 = this.f(1.0F);
 -                Vec3D vec3d2 = vec3d.a(this.getPositionVector()).d();
-
+ 
 -                vec3d2 = new Vec3D(vec3d2.x, 0.0D, vec3d2.z);
 -                if (vec3d2.b(vec3d1) < 0.0D) {
 -                    return true;
@@ -743,10 +743,10 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
              this.impulse = true;
              Vec3D vec3d = this.getMot();
              Vec3D vec3d1 = (new Vec3D(d0, 0.0D, d1)).d().a((double) f);
-
+ 
 -            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.min(0.4D, vec3d.y / 2.0D + (double) f) : vec3d.y, vec3d.z / 2.0D - vec3d1.z);
 +            this.setMot(vec3d.x / 2.0D - vec3d1.x, this.onGround ? Math.min(0.4D, (double) f * 0.75D) : Math.min(0.4D, vec3d.y + (double) f * 0.5D), vec3d.z / 2.0D - vec3d1.z);
-
+ 
              // Paper start - call EntityKnockbackByEntityEvent
              Vec3D currentMot = this.getMot();
 @@ -1882,7 +1914,12 @@ public abstract class EntityLiving extends Entity {
@@ -765,7 +765,7 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
              float blockingModifier = blocking.apply((double) f).floatValue();
 @@ -1930,18 +1967,6 @@ public abstract class EntityLiving extends Entity {
              float absorptionModifier = absorption.apply((double) f).floatValue();
-
+ 
              EntityDamageEvent event = CraftEventFactory.handleLivingEntityDamageEvent(this, damagesource, originalDamage, hardHatModifier, blockingModifier, armorModifier, resistanceModifier, magicModifier, absorptionModifier, hardHat, blocking, armor, resistance, magic, absorption);
 -            if (damagesource.getEntity() instanceof EntityHuman) {
 -                // Paper start - PlayerAttackEntityCooldownResetEvent
@@ -783,17 +783,17 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
                  return false;
              }
 @@ -3133,7 +3158,7 @@ public abstract class EntityLiving extends Entity {
-
+ 
      @Override
      protected void velocityChanged() {
 -        this.velocityChanged = this.random.nextDouble() >= this.b(GenericAttributes.KNOCKBACK_RESISTANCE);
 +        this.velocityChanged = true;
      }
-
+ 
      @Override
 @@ -3425,13 +3450,28 @@ public abstract class EntityLiving extends Entity {
      }
-
+ 
      public boolean isBlocking() {
 +        return !this.getBlockingItem().isEmpty();
 +    }
@@ -801,7 +801,7 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
 +    public ItemStack getBlockingItem() {
          if (this.isHandRaised() && !this.activeItem.isEmpty()) {
              Item item = this.activeItem.getItem();
-
+ 
 -            return item.d_(this.activeItem) != EnumAnimation.BLOCK ? false : item.e_(this.activeItem) - this.bd >= getShieldBlockingDelay(); // Paper - shieldBlockingDelay
 -        } else {
 -            return false;
@@ -821,7 +821,7 @@ index b7b07b652b29e6f84f87fc92add99ce68f8bbd09..5dff733959663fe24aa0049afde6c7a2
 +    public boolean isItemOnCooldown(ItemStack itemstack) {
 +        return false;
      }
-
+ 
      public boolean ee() {
 diff --git a/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java b/src/main/java/net/minecraft/world/entity/ai/attributes/GenericAttributes.java
 index 5e256a5feface72f9c34612fa5bbb760b7a23a46..901b4fb29ad008ab09aa1d6a9dfac8f9011ef068 100644
@@ -838,7 +838,7 @@ index 5e256a5feface72f9c34612fa5bbb760b7a23a46..901b4fb29ad008ab09aa1d6a9dfac8f9
      public static final AttributeBase ARMOR_TOUGHNESS = a("generic.armor_toughness", (new AttributeRanged("attribute.name.generic.armor_toughness", 0.0D, 0.0D, 20.0D)).a(true));
      public static final AttributeBase LUCK = a("generic.luck", (new AttributeRanged("attribute.name.generic.luck", 0.0D, -1024.0D, 1024.0D)).a(true));
 diff --git a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
-index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f04869588 100644
+index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..53c1dbb07c4e4f0a8678707880f1c417b1ffefc9 100644
 --- a/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
 +++ b/src/main/java/net/minecraft/world/entity/player/EntityHuman.java
 @@ -65,6 +65,7 @@ import net.minecraft.world.entity.EnumMainHand;
@@ -850,30 +850,30 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
  import net.minecraft.world.entity.animal.EntityParrot;
  import net.minecraft.world.entity.animal.EntityPig;
 @@ -128,6 +129,7 @@ import org.bukkit.event.player.PlayerVelocityEvent;
-
+ 
  public abstract class EntityHuman extends EntityLiving {
-
+ 
 +    protected static final UUID MAGIC_ATTACK_DAMAGE_UUID = UUID.fromString("13C4E5B5-0F72-4359-AB1C-625F9DF5AA2B");
      public static final EntitySize bh = EntitySize.b(0.6F, 1.8F);
      // CraftBukkit - decompile error
      private static final Map<EntityPose, EntitySize> b = ImmutableMap.<EntityPose, EntitySize>builder().put(EntityPose.STANDING, EntityHuman.bh).put(EntityPose.SLEEPING, EntityHuman.ah).put(EntityPose.FALL_FLYING, EntitySize.b(0.6F, 0.6F)).put(EntityPose.SWIMMING, EntitySize.b(0.6F, 0.6F)).put(EntityPose.SPIN_ATTACK, EntitySize.b(0.6F, 0.6F)).put(EntityPose.CROUCHING, EntitySize.b(0.6F, 1.5F)).put(EntityPose.DYING, EntitySize.c(0.2F, 0.2F)).build();
 @@ -208,7 +210,7 @@ public abstract class EntityHuman extends EntityLiving {
      }
-
+ 
      public static AttributeProvider.Builder ep() {
 -        return EntityLiving.cL().a(GenericAttributes.ATTACK_DAMAGE, 1.0D).a(GenericAttributes.MOVEMENT_SPEED, 0.10000000149011612D).a(GenericAttributes.ATTACK_SPEED).a(GenericAttributes.LUCK);
 +        return EntityLiving.cL().a(GenericAttributes.ATTACK_DAMAGE, 2.0D).a(GenericAttributes.MOVEMENT_SPEED, 0.10000000149011612D).a(GenericAttributes.ATTACK_SPEED).a(GenericAttributes.ATTACK_REACH).a(GenericAttributes.LUCK);
      }
-
+ 
      @Override
 @@ -286,14 +288,10 @@ public abstract class EntityHuman extends EntityLiving {
              this.setPosition(d0, this.locY(), d1);
          }
-
+ 
 -        ++this.at;
 +        --this.at;
          ItemStack itemstack = this.getItemInMainHand();
-
+ 
          if (!ItemStack.matches(this.bL, itemstack)) {
 -            if (!ItemStack.d(this.bL, itemstack)) {
 -                this.resetAttackCooldown();
@@ -881,7 +881,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 -
              this.bL = itemstack.cloneItemStack();
          }
-
+ 
 @@ -795,6 +793,8 @@ public abstract class EntityHuman extends EntityLiving {
          this.foodData.a(nbttagcompound);
          this.abilities.b(nbttagcompound);
@@ -899,7 +899,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 -            this.p(true);
 -        }
 +    }
-
+ 
 +    @Override
 +    public boolean disableShield(float f) {
 +        this.getCooldownTracker().setCooldown(Items.SHIELD, (int) (f * 20.0F));
@@ -907,10 +907,10 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +        this.world.broadcastEntityEffect(this, (byte) 30);
 +        return true;
      }
-
+ 
      public boolean a(EntityHuman entityhuman) {
 @@ -919,19 +923,20 @@ public abstract class EntityHuman extends EntityLiving {
-
+ 
      @Override
      protected void damageShield(float f) {
 -        if (this.activeItem.getItem() == Items.SHIELD) {
@@ -920,12 +920,12 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 -                this.b(StatisticList.ITEM_USED.b(this.activeItem.getItem()));
 +                this.b(StatisticList.ITEM_USED.b(blockingItem.getItem()));
              }
-
+ 
              if (f >= 3.0F) {
                  int i = 1 + MathHelper.d(f);
 -                EnumHand enumhand = this.getRaisedHand();
 +                EnumHand enumhand = blockingItem == this.activeItem ? this.getRaisedHand() : EnumHand.OFF_HAND;
-
+ 
 -                this.activeItem.damage(i, this, (entityhuman) -> {
 +                blockingItem.damage(i, this, (entityhuman) -> {
                      entityhuman.broadcastItemBreak(enumhand);
@@ -936,21 +936,21 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
                          this.setSlot(EnumItemSlot.MAINHAND, ItemStack.b);
                      } else {
 @@ -1126,23 +1131,25 @@ public abstract class EntityHuman extends EntityLiving {
-
+ 
      public void attack(Entity entity) {
          if (entity.bL()) {
 -            if (!entity.t(this)) {
 -                float f = (float) this.b(GenericAttributes.ATTACK_DAMAGE);
 +            if (!entity.t(this) && this.isAttackAvailable(1.0F)) {
                  float f1;
-
+ 
                  if (entity instanceof EntityLiving) {
 -                    f1 = EnchantmentManager.a(this.getItemInMainHand(), ((EntityLiving) entity).getMonsterType());
 +                    f1 = EnchantmentManager.a(this.getItemInMainHand(), (EntityLiving) entity);
                  } else {
                      f1 = EnchantmentManager.a(this.getItemInMainHand(), EnumMonsterType.UNDEFINED);
                  }
-
+ 
 -                float f2 = this.getAttackCooldown(0.5F);
 +                if (f1 > 0.0F) {
 +                    this.getAttributeInstance(GenericAttributes.ATTACK_DAMAGE).b(new AttributeModifier(MAGIC_ATTACK_DAMAGE_UUID, "Magic modifier", (double) f1, AttributeModifier.Operation.ADDITION));
@@ -959,7 +959,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +                if (f1 > 0.0F) {
 +                    this.getAttributeInstance(GenericAttributes.ATTACK_DAMAGE).b(MAGIC_ATTACK_DAMAGE_UUID);
 +                }
-
+ 
 -                f *= 0.2F + f2 * f2 * 0.8F;
 -                f1 *= f2;
 -                // this.resetAttackCooldown(); // CraftBukkit - Moved to EntityLiving to reset the cooldown after the damage is dealt
@@ -972,16 +972,16 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 @@ -1153,25 +1160,14 @@ public abstract class EntityHuman extends EntityLiving {
                          flag1 = true;
                      }
-
+ 
 -                    boolean flag2 = flag && this.fallDistance > 0.0F && !this.onGround && !this.isClimbing() && !this.isInWater() && !this.hasEffect(MobEffects.BLINDNESS) && !this.isPassenger() && entity instanceof EntityLiving;
 +                    boolean flag2 = flag && this.fallDistance > 0.0F && !this.onGround;
-
+ 
                      flag2 = flag2 && !world.paperConfig.disablePlayerCrits; // Paper
 -                    flag2 = flag2 && !this.isSprinting();
                      if (flag2) {
                          f *= 1.5F;
                      }
-
+ 
 -                    f += f1;
 -                    boolean flag3 = false;
 -                    double d0 = (double) (this.A - this.z);
@@ -994,21 +994,21 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 -                        }
 -                    }
 +                    boolean flag3 = !flag2 && !flag1 && this.checkSweepAttack();
-
+ 
                      float f3 = 0.0F;
                      boolean flag4 = false;
 @@ -1193,7 +1189,7 @@ public abstract class EntityHuman extends EntityLiving {
                      }
-
+ 
                      Vec3D vec3d = entity.getMot();
 -                    boolean flag5 = entity.damageEntity(DamageSource.playerAttack(this), f);
 +                    boolean flag5 = entity.damageEntity(DamageSource.playerAttack(this).setCritSpecial(flag2), f);
-
+ 
                      if (flag5) {
                          if (i > 0) {
 @@ -1212,24 +1208,7 @@ public abstract class EntityHuman extends EntityLiving {
                          }
-
+ 
                          if (flag3) {
 -                            float f4 = 1.0F + EnchantmentManager.a((EntityLiving) this) * f;
 -                            List<EntityLiving> list = this.world.a(EntityLiving.class, entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D));
@@ -1030,12 +1030,12 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 -                            this.ex();
 +                            this.sweepAttack(entity.getBoundingBox().grow(1.0D, 0.25D, 1.0D), (float) this.getCurrentAttackReach(1.0F), f, entity);
                          }
-
+ 
                          if (entity instanceof EntityPlayer && entity.velocityChanged) {
 @@ -1314,7 +1293,7 @@ public abstract class EntityHuman extends EntityLiving {
                              }
                          }
-
+ 
 -                        this.applyExhaustion(world.spigotConfig.combatExhaustion, EntityExhaustionEvent.ExhaustionReason.ATTACK); // CraftBukkit - EntityExhaustionEvent // Spigot - Change to use configurable value
 +                        this.applyExhaustion(0.1F, EntityExhaustionEvent.ExhaustionReason.ATTACK); // CraftBukkit - EntityExhaustionEvent
                      } else {
@@ -1044,7 +1044,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 @@ -1328,6 +1307,8 @@ public abstract class EntityHuman extends EntityLiving {
                      }
                  }
-
+ 
 +                this.resetAttackCooldownAfterAttack(entity);
 +
              }
@@ -1053,7 +1053,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 @@ -1337,6 +1318,50 @@ public abstract class EntityHuman extends EntityLiving {
          this.attack(entityliving);
      }
-
+ 
 +    public void attackAir() {
 +        if (this.isAttackAvailable(1.0F)) {
 +            this.swingHand(EnumHand.MAIN_HAND);
@@ -1100,9 +1100,9 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +
      public void p(boolean flag) {
          float f = 0.25F + (float) EnchantmentManager.getDigSpeedEnchantmentLevel(this) * 0.05F;
-
+ 
 @@ -2119,15 +2144,51 @@ public abstract class EntityHuman extends EntityLiving {
-
+ 
      public float getCooldownPeriod() { return this.eR(); } // Paper - OBFHELPER
      public float eR() {
 -        return (float) (1.0D / this.b(GenericAttributes.ATTACK_SPEED) * 20.0D);
@@ -1110,7 +1110,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +        f = MathHelper.a(f, 0.1F, 1024.0F);
 +        return (int) (1.0F / f * 20.0F + 0.5F);
      }
-
+ 
      public float getAttackCooldown(float f) {
 -        return MathHelper.a(((float) this.at + f) / this.eR(), 0.0F, 1.0F);
 +        if (this.attackStrengthStartValue == 0) {
@@ -1118,7 +1118,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +        }
 +        return MathHelper.a(2.0F * (1.0F - ((float) this.at - f) / (float) this.attackStrengthStartValue), 0.0F, 2.0F);
      }
-
+ 
      public void resetAttackCooldown() {
 -        this.at = 0;
 +        this.resetAttackCooldown(true);
@@ -1154,7 +1154,7 @@ index c39c50e53549e9cb9d3520bc7e8b7e89cfa20163..6f0b7f3ec87d2dee3b45a27630cbc51f
 +        }
 +        return this.b(GenericAttributes.ATTACK_REACH) + d0;
      }
-
+ 
      public ItemCooldown getCooldownTracker() {
 diff --git a/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java b/src/main/java/net/minecraft/world/entity/projectile/EntityThrownTrident.java
 index 646043987e1102ae8e9becc9820e6c6d86ef844d..bc717d412a4c7835254b13d8e89e493388cec0f4 100644
@@ -1163,7 +1163,7 @@ index 646043987e1102ae8e9becc9820e6c6d86ef844d..bc717d412a4c7835254b13d8e89e4933
 @@ -37,6 +37,11 @@ public class EntityThrownTrident extends EntityArrow {
          this.trident = new ItemStack(Items.TRIDENT);
      }
-
+ 
 +    public EntityThrownTrident(World world, double d0, double d1, double d2) {
 +        super(EntityTypes.TRIDENT, d0, d1, d2, world);
 +        this.trident = new ItemStack(Items.TRIDENT);
@@ -1175,7 +1175,7 @@ index 646043987e1102ae8e9becc9820e6c6d86ef844d..bc717d412a4c7835254b13d8e89e4933
 @@ -45,6 +50,12 @@ public class EntityThrownTrident extends EntityArrow {
          this.datawatcher.set(EntityThrownTrident.ag, itemstack.u());
      }
-
+ 
 +    public void setTridentItem(ItemStack itemstack) {
 +        if (itemstack.getItem() == Items.TRIDENT || itemstack.isEmpty()) {
 +            this.trident = itemstack.cloneItemStack();
@@ -1188,11 +1188,11 @@ index 646043987e1102ae8e9becc9820e6c6d86ef844d..bc717d412a4c7835254b13d8e89e4933
 @@ -117,7 +128,7 @@ public class EntityThrownTrident extends EntityArrow {
          if (entity instanceof EntityLiving) {
              EntityLiving entityliving = (EntityLiving) entity;
-
+ 
 -            f += EnchantmentManager.a(this.trident, entityliving.getMonsterType());
 +            f += EnchantmentManager.a(this.trident, entityliving);
          }
-
+ 
          Entity entity1 = this.getShooter();
 @@ -209,4 +220,14 @@ public class EntityThrownTrident extends EntityArrow {
      protected float s() {
@@ -1214,7 +1214,7 @@ index c7c4dd668a273d86d94cc288a0bf8083b8e599b3..3ce8a4947b4c50c486d32546a7aa6f82
 --- a/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java
 +++ b/src/main/java/net/minecraft/world/entity/projectile/EntityTippedArrow.java
 @@ -224,7 +224,11 @@ public class EntityTippedArrow extends EntityArrow {
-
+ 
          while (iterator.hasNext()) {
              mobeffect = (MobEffect) iterator.next();
 -            entityliving.addEffect(new MobEffect(mobeffect.getMobEffect(), Math.max(mobeffect.getDuration() / 8, 1), mobeffect.getAmplifier(), mobeffect.isAmbient(), mobeffect.isShowParticles()), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.ARROW); // CraftBukkit
@@ -1224,7 +1224,7 @@ index c7c4dd668a273d86d94cc288a0bf8083b8e599b3..3ce8a4947b4c50c486d32546a7aa6f82
 +            }
 +            entityliving.addEffect(new MobEffect(mobeffect.getMobEffect(), Math.max((int) ((float) mobeffect.getDuration() * 0.125F), 1), mobeffect.getAmplifier(), mobeffect.isAmbient(), mobeffect.isShowParticles()), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.ARROW); // CraftBukkit
          }
-
+ 
          if (!this.effects.isEmpty()) {
 diff --git a/src/main/java/net/minecraft/world/entity/projectile/IProjectile.java b/src/main/java/net/minecraft/world/entity/projectile/IProjectile.java
 index 8fe98404ebb8b3b5d1fdac0896b27da10736026d..68e21cc7b7ba105b62ba19f73e7d583c83ad5a02 100644
@@ -1232,7 +1232,7 @@ index 8fe98404ebb8b3b5d1fdac0896b27da10736026d..68e21cc7b7ba105b62ba19f73e7d583c
 +++ b/src/main/java/net/minecraft/world/entity/projectile/IProjectile.java
 @@ -128,9 +128,11 @@ public abstract class IProjectile extends Entity {
          float f7 = MathHelper.cos(f1 * 0.017453292F) * MathHelper.cos(f * 0.017453292F);
-
+ 
          this.shoot((double) f5, (double) f6, (double) f7, f3, f4);
 -        Vec3D vec3d = entity.getMot();
 -
@@ -1243,25 +1243,25 @@ index 8fe98404ebb8b3b5d1fdac0896b27da10736026d..68e21cc7b7ba105b62ba19f73e7d583c
 +        Vec3D projectedVelocity = projectileVelocity.a(projection);
 +        if (!entity.world.paperConfig.disableRelativeProjectileVelocity) this.setMot(projectileVelocity.e(projectedVelocity)); // Paper - allow disabling relative velocity
      }
-
+ 
      // CraftBukkit start - call projectile hit event
 diff --git a/src/main/java/net/minecraft/world/food/FoodMetaData.java b/src/main/java/net/minecraft/world/food/FoodMetaData.java
 index e455b25b0809af15f6fde957121d0110da7eb08f..8cace78026d18a22d2a78c57c25dbfbe2f2b890c 100644
 --- a/src/main/java/net/minecraft/world/food/FoodMetaData.java
 +++ b/src/main/java/net/minecraft/world/food/FoodMetaData.java
 @@ -38,7 +38,7 @@ public class FoodMetaData {
-
+ 
      public void eat(int i, float f) {
          this.foodLevel = Math.min(i + this.foodLevel, 20);
 -        this.saturationLevel = Math.min(this.saturationLevel + (float) i * f * 2.0F, (float) this.foodLevel);
 +        this.saturationLevel = Math.max(this.saturationLevel, (float) i * f * 2.0F);
      }
-
+ 
      public void a(Item item, ItemStack itemstack) {
 @@ -82,27 +82,22 @@ public class FoodMetaData {
-
+ 
          boolean flag = entityhuman.world.getGameRules().getBoolean(GameRules.NATURAL_REGENERATION);
-
+ 
 -        if (flag && this.saturationLevel > 0.0F && entityhuman.eJ() && this.foodLevel >= 20) {
 +        if (flag && this.foodLevel > 6 && entityhuman.eJ()) {
              ++this.foodTickTimer;
@@ -1299,7 +1299,7 @@ index e455b25b0809af15f6fde957121d0110da7eb08f..8cace78026d18a22d2a78c57c25dbfbe
 @@ -140,6 +135,10 @@ public class FoodMetaData {
          return this.foodLevel < 20;
      }
-
+ 
 +    public boolean isEnoughToSprint() {
 +        return this.foodLevel > 6;
 +    }
@@ -1313,11 +1313,11 @@ index ae5674ae9c539720a657838a640050cd3b4dc5b5..2ac10a1c266450a725265ea655fec109
 +++ b/src/main/java/net/minecraft/world/inventory/ContainerAnvil.java
 @@ -183,7 +183,7 @@ public class ContainerAnvil extends ContainerAnvilAbstract {
                              int i2 = (Integer) map1.get(enchantment);
-
+ 
                              i2 = l1 == i2 ? i2 + 1 : Math.max(i2, l1);
 -                            boolean flag3 = enchantment.canEnchant(itemstack);
 +                            boolean flag3 = enchantment.canEnchant(itemstack, flag);
-
+ 
                              if (this.player.abilities.canInstantlyBuild || itemstack.getItem() == Items.ENCHANTED_BOOK) {
                                  flag3 = true;
 diff --git a/src/main/java/net/minecraft/world/item/EnumToolMaterial.java b/src/main/java/net/minecraft/world/item/EnumToolMaterial.java
@@ -1403,7 +1403,7 @@ index 015f4d71f35a9d512814389b6e6cab74c0daf116..0234492ce133ab0f27627202ab409469
 @@ -41,8 +41,9 @@ public class ItemBow extends ItemProjectileWeapon implements ItemVanishable {
                          ItemArrow itemarrow = (ItemArrow) ((ItemArrow) (itemstack1.getItem() instanceof ItemArrow ? itemstack1.getItem() : Items.ARROW));
                          EntityArrow entityarrow = itemarrow.a(world, itemstack1, (EntityLiving) entityhuman);
-
+ 
 -                        entityarrow.a(entityhuman, entityhuman.pitch, entityhuman.yaw, 0.0F, f * 3.0F, 1.0F);
 -                        if (f == 1.0F) {
 +                        float fatigue = b(j);
@@ -1411,11 +1411,11 @@ index 015f4d71f35a9d512814389b6e6cab74c0daf116..0234492ce133ab0f27627202ab409469
 +                        if (f == 1.0F && fatigue <= 0.5F) {
                              entityarrow.setCritical(true);
                          }
-
+ 
 @@ -114,6 +115,13 @@ public class ItemBow extends ItemProjectileWeapon implements ItemVanishable {
          return f;
      }
-
+ 
 +    public static float b(int i) {
 +        if (i < 60) {
 +            return 0.5F;
@@ -1432,7 +1432,7 @@ index 4e1e819c8535e8a6b9aa5f76afe568ea171b939f..0df555ae8f5353e4be55cf248a1862ea
 +++ b/src/main/java/net/minecraft/world/item/ItemCrossbow.java
 @@ -233,7 +233,7 @@ public class ItemCrossbow extends ItemProjectileWeapon implements ItemVanishable
                  Vector3fa vector3fa = new Vector3fa(vec3d1);
-
+ 
                  vector3fa.a(quaternion);
 -                ((IProjectile) object).shoot((double) vector3fa.a(), (double) vector3fa.b(), (double) vector3fa.c(), f1, f2);
 +                ((IProjectile) object).shoot((double) vector3fa.a(), (double) vector3fa.b(), (double) vector3fa.c(), f1, 0.25F);
@@ -1444,7 +1444,7 @@ index 4b1a6ee784da4595931396a905f1358b7a13f3dd..0e350cf869bda913a000ffba0e0a14cc
 --- a/src/main/java/net/minecraft/world/item/ItemEgg.java
 +++ b/src/main/java/net/minecraft/world/item/ItemEgg.java
 @@ -36,6 +36,7 @@ public class ItemEgg extends Item {
-
+ 
                  world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_EGG_THROW, SoundCategory.PLAYERS, 0.5F, 0.4F / (net.minecraft.world.entity.Entity.SHARED_RANDOM.nextFloat() * 0.4F + 0.8F));
                  entityhuman.b(StatisticList.ITEM_USED.b(this));
 +                entityhuman.getCooldownTracker().setCooldown(this, 4);
@@ -1537,13 +1537,13 @@ index 6085c5f75bd85cca3462613c18c2e2bf26205d1b..9e1cb5b6363753b0d0da7975a3612d39
 --- a/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
 +++ b/src/main/java/net/minecraft/world/item/ItemMilkBucket.java
 @@ -37,7 +37,7 @@ public class ItemMilkBucket extends Item {
-
+ 
      @Override
      public int e_(ItemStack itemstack) {
 -        return 32;
 +        return 20;
      }
-
+ 
      @Override
 diff --git a/src/main/java/net/minecraft/world/item/ItemPotion.java b/src/main/java/net/minecraft/world/item/ItemPotion.java
 index ca2f8d522d7f2305f161cb4aa611226355ea5789..8bddc9d5f0c8a8f9d2005e13d23bc5ebc774f03c 100644
@@ -1551,7 +1551,7 @@ index ca2f8d522d7f2305f161cb4aa611226355ea5789..8bddc9d5f0c8a8f9d2005e13d23bc5eb
 +++ b/src/main/java/net/minecraft/world/item/ItemPotion.java
 @@ -21,7 +21,11 @@ import net.minecraft.world.level.World;
  public class ItemPotion extends Item {
-
+ 
      public ItemPotion(Item.Info item_info) {
 -        super(item_info);
 +        this(item_info, true);
@@ -1560,16 +1560,16 @@ index ca2f8d522d7f2305f161cb4aa611226355ea5789..8bddc9d5f0c8a8f9d2005e13d23bc5eb
 +    protected ItemPotion(Item.Info item_info, boolean drinkable) {
 +        super(drinkable ? item_info.a(16) : item_info);
      }
-
+ 
      @Override
 @@ -88,7 +92,7 @@ public class ItemPotion extends Item {
-
+ 
      @Override
      public int e_(ItemStack itemstack) {
 -        return 32;
 +        return 20;
      }
-
+ 
      @Override
 diff --git a/src/main/java/net/minecraft/world/item/ItemPotionThrowable.java b/src/main/java/net/minecraft/world/item/ItemPotionThrowable.java
 index 27c61fc4e61b0d76565ca6893514b3c73247c954..cd9efdcb9f373561cf9dfd00c7d34febaef8d855 100644
@@ -1577,12 +1577,12 @@ index 27c61fc4e61b0d76565ca6893514b3c73247c954..cd9efdcb9f373561cf9dfd00c7d34feb
 +++ b/src/main/java/net/minecraft/world/item/ItemPotionThrowable.java
 @@ -12,7 +12,7 @@ import net.minecraft.world.level.World;
  public class ItemPotionThrowable extends ItemPotion {
-
+ 
      public ItemPotionThrowable(Item.Info item_info) {
 -        super(item_info);
 +        super(item_info, false);
      }
-
+ 
      @Override
 diff --git a/src/main/java/net/minecraft/world/item/ItemShield.java b/src/main/java/net/minecraft/world/item/ItemShield.java
 new file mode 100644
@@ -1653,16 +1653,16 @@ index 8a1d59cb1ea5a8959c52272aa762ec35307246d7..a47fe4494ab697a41e0b198c640e066c
 +++ b/src/main/java/net/minecraft/world/item/ItemSnowball.java
 @@ -12,7 +12,7 @@ import net.minecraft.world.level.World;
  public class ItemSnowball extends Item {
-
+ 
      public ItemSnowball(Item.Info item_info) {
 -        super(item_info);
 +        super(item_info.a(64));
      }
-
+ 
      @Override
 @@ -37,6 +37,7 @@ public class ItemSnowball extends Item {
                  }
-
+ 
                  world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_SNOWBALL_THROW, SoundCategory.NEUTRAL, 0.5F, 0.4F / (ItemSnowball.RANDOM.nextFloat() * 0.4F + 0.8F));
 +                entityhuman.getCooldownTracker().setCooldown(this, 4);
              } else { // Paper
@@ -1879,13 +1879,13 @@ index 9896477b54cf91a88bdfc3d85018a59193b32859..0f2d3d397ce4835526215fe0cc4b4a81
 @@ -34,8 +34,7 @@ public class ItemTrident extends Item implements ItemVanishable {
          super(item_info);
          Builder<AttributeBase, AttributeModifier> builder = ImmutableMultimap.builder();
-
+ 
 -        builder.put(GenericAttributes.ATTACK_DAMAGE, new AttributeModifier(ItemTrident.f, "Tool modifier", 8.0D, AttributeModifier.Operation.ADDITION));
 -        builder.put(GenericAttributes.ATTACK_SPEED, new AttributeModifier(ItemTrident.g, "Tool modifier", -2.9000000953674316D, AttributeModifier.Operation.ADDITION));
 +        WeaponType.TRIDENT.addCombatAttributes(EnumToolMaterial.IRON, builder);
          this.a = builder.build();
      }
-
+ 
 diff --git a/src/main/java/net/minecraft/world/item/WeaponType.java b/src/main/java/net/minecraft/world/item/WeaponType.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..f6ebf5750324863b57ce8b17887221ab94e51c60
@@ -1990,7 +1990,7 @@ index c719c1c1f837753f61eb7be83b6ec2a214ab6819..e1f31f3999c7c7d104fa9015d77018d9
 +++ b/src/main/java/net/minecraft/world/item/enchantment/Enchantment.java
 @@ -114,7 +114,11 @@ public abstract class Enchantment {
      }
-
+ 
      public boolean canEnchant(ItemStack itemstack) {
 -        return this.itemTarget.canEnchant(itemstack.getItem());
 +        return this.canEnchant(itemstack, false);
@@ -1999,7 +1999,7 @@ index c719c1c1f837753f61eb7be83b6ec2a214ab6819..e1f31f3999c7c7d104fa9015d77018d9
 +    public boolean canEnchant(ItemStack itemstack, boolean flag) {
 +        return this.itemTarget.canEnchant(itemstack.getItem(), flag);
      }
-
+ 
      public void a(EntityLiving entityliving, Entity entity, int i) {}
 diff --git a/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java b/src/main/java/net/minecraft/world/item/enchantment/EnchantmentCleaving.java
 new file mode 100644
@@ -2133,7 +2133,7 @@ index 72afbf8f537770540e90a2880ea81de137ea10f5..80dedc946f75561dd2f9406b16eb275b
 @@ -147,6 +147,21 @@ public class EnchantmentManager {
          return mutablefloat.floatValue();
      }
-
+ 
 +    public static float a(ItemStack itemstack, @Nullable EntityLiving entityliving) {
 +        MutableFloat mutablefloat = new MutableFloat();
 +
@@ -2151,11 +2151,11 @@ index 72afbf8f537770540e90a2880ea81de137ea10f5..80dedc946f75561dd2f9406b16eb275b
 +
      public static float a(EntityLiving entityliving) {
          int i = a(Enchantments.SWEEPING, entityliving);
-
+ 
 @@ -221,6 +236,10 @@ public class EnchantmentManager {
          return a(Enchantments.DEPTH_STRIDER, entityliving);
      }
-
+ 
 +    public static int getCleavingEnchantmentLevel(EntityLiving entityliving) {
 +        return a(Enchantments.CLEAVING, entityliving);
 +    }
@@ -2166,7 +2166,7 @@ index 72afbf8f537770540e90a2880ea81de137ea10f5..80dedc946f75561dd2f9406b16eb275b
 @@ -407,7 +426,7 @@ public class EnchantmentManager {
          while (iterator.hasNext()) {
              Enchantment enchantment = (Enchantment) iterator.next();
-
+ 
 -            if ((!enchantment.isTreasure() || flag) && enchantment.i() && (enchantment.itemTarget.canEnchant(item) || flag1)) {
 +            if ((!enchantment.isTreasure() || flag) && enchantment.i() && (enchantment.itemTarget.canEnchant(item, false) || flag1)) {
                  for (int j = enchantment.getMaxLevel(); j > enchantment.getStartLevel() - 1; --j) {
@@ -2420,13 +2420,13 @@ index 477514b64b6eedcb40b67e6f876caff39c325a48..d3208832c3ae7bd44a358a68bd83c097
  import net.minecraft.world.entity.EnumMonsterType;
 -import net.minecraft.world.item.ItemAxe;
 -import net.minecraft.world.item.ItemStack;
-
+ 
  public class EnchantmentWeaponDamage extends Enchantment {
-
+ 
 @@ -47,11 +45,6 @@ public class EnchantmentWeaponDamage extends Enchantment {
          return !(enchantment instanceof EnchantmentWeaponDamage);
      }
-
+ 
 -    @Override
 -    public boolean canEnchant(ItemStack itemstack) {
 -        return itemstack.getItem() instanceof ItemAxe ? true : super.canEnchant(itemstack);
@@ -2452,7 +2452,7 @@ index 894c7834f8e5829058e5004829a795a1004510bf..90419ae650495829cb02de60089ef52d
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -528,7 +528,10 @@ public final class CraftServer implements Server {
-
+ 
      @Override
      public String getVersion() {
 -        return serverVersion + " (MC: " + console.getVersion() + ")";
@@ -2461,7 +2461,7 @@ index 894c7834f8e5829058e5004829a795a1004510bf..90419ae650495829cb02de60089ef52d
 +        return serverVersion + " (MC: 1.16.5)";
 +        // Paper 8c external end
      }
-
+ 
      @Override
 @@ -539,7 +542,10 @@ public final class CraftServer implements Server {
      // Paper start - expose game version
@@ -2474,7 +2474,7 @@ index 894c7834f8e5829058e5004829a795a1004510bf..90419ae650495829cb02de60089ef52d
 +        // Paper 8c external end
      }
      // Paper end
-
+ 
 diff --git a/src/main/resources/version.json b/src/main/resources/version.json
 new file mode 100644
 index 0000000000000000000000000000000000000000..1bccc2d9b6142f6946c6c0a5d1b7257070b58ec4

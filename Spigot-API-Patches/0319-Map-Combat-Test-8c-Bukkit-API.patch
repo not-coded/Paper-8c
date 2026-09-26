@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 18 May 2026 21:58:49 +0200
 Subject: [PATCH] Map Combat Test 8c Bukkit API
 
@@ -48,7 +48,7 @@ index 799813410f40589ba1d7d530a47d87f609764705..3bdc0feda1642e1681506493cbbc5dc4
 @@ -103,6 +103,11 @@ public abstract class Enchantment implements Keyed {
       */
      public static final Enchantment SWEEPING_EDGE = new EnchantmentWrapper("sweeping");
-
+ 
 +    /**
 +     * Increases axe melee damage and shield disable time.
 +     */
@@ -64,7 +64,7 @@ index 635e07a6b0e255c4fdad58ba9d281c807af4e229..e52807afeda6a4bc1eb8bec457e6200c
 @@ -116,6 +116,21 @@ public enum EnchantmentTarget {
          }
      },
-
+ 
 +    /**
 +     * Allows the Enchantment to be placed on axes.
 +     */
@@ -84,9 +84,13 @@ index 635e07a6b0e255c4fdad58ba9d281c807af4e229..e52807afeda6a4bc1eb8bec457e6200c
       * Allows the Enchantment to be placed on tools (spades, pickaxe, axes)
       */
 diff --git a/src/main/java/org/bukkit/entity/HumanEntity.java b/src/main/java/org/bukkit/entity/HumanEntity.java
+index 2ce774c81a93260a1464183d435b4c418ed61648..de2f1a666b115017520d9588f50b51d59de19780 100644
 --- a/src/main/java/org/bukkit/entity/HumanEntity.java
 +++ b/src/main/java/org/bukkit/entity/HumanEntity.java
-@@ -306,5 +306,6 @@ public interface HumanEntity extends InventoryHolder, AnimalTamer, Permissible {
+@@ -440,10 +440,11 @@ public interface HumanEntity extends LivingEntity, AnimalTamer, InventoryHolder
+     /**
+      * Gets the current cooldown for a player's attack.
+      *
 -     * This is used to calculate damage, with 1.0 representing a fully charged
 -     * attack and 0.0 representing a non-charged attack
 +     * This is used to calculate damage, with 0.0 representing a non-charged
@@ -96,3 +100,5 @@ diff --git a/src/main/java/org/bukkit/entity/HumanEntity.java b/src/main/java/or
 -     * @return A float between 0.0-1.0 representing the progress of the charge
 +     * @return A float between 0.0-2.0 representing the progress of the charge
       */
+     public float getAttackCooldown();
+ 

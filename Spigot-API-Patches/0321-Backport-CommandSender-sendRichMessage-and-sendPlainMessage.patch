@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:16:35 +0200
 Subject: [PATCH] Backport CommandSender#sendRichMessage and sendPlainMessage
+
 
 diff --git a/src/main/java/org/bukkit/command/CommandSender.java b/src/main/java/org/bukkit/command/CommandSender.java
 index fb0e608fa92dae99b9eee8fc1cbdf4b91a33e620..ed1baafec483c3b4703a62d7ab4efa77e530a8f9 100644

@@ -1,10 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:16:35 +0200
-Subject: [PATCH] Update API dependencies: Adventure 4.13.1 + MiniMessage + ComponentLogger, checker-qual, ASM 9.8
+Subject: [PATCH] Update API dependencies: Adventure 4.13.1 + MiniMessage +
+ ComponentLogger, checker-qual, ASM 9.8
+
 
 diff --git a/pom.xml b/pom.xml
-index 73fbd5d5a591871a3a386fb5c455cd96a3992e7a..a7522fdb63bf1f9eed2333670c1b98eb8e01f85f 100644
+index 73fbd5d5a591871a3a386fb5c455cd96a3992e7a..abdc57d1c6340bb1d203b15182f7c0e7d50ad397 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -22,7 +22,7 @@

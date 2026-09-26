@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:21:59 +0200
 Subject: [PATCH] Backport ComponentLogger console provider
+
 
 diff --git a/src/main/java/io/papermc/paper/adventure/PaperComponentLoggerProvider.java b/src/main/java/io/papermc/paper/adventure/PaperComponentLoggerProvider.java
 new file mode 100644

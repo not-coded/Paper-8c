@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:16:35 +0200
 Subject: [PATCH] Backport Plugin#getComponentLogger
+
 
 diff --git a/src/main/java/org/bukkit/plugin/Plugin.java b/src/main/java/org/bukkit/plugin/Plugin.java
 index 79890c68f1ad31f951dfdbd9a16dac500ec58c40..6b1bd4a795406a533c1202a192251fc370e7462d 100644

@@ -1,13 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:21:59 +0200
 Subject: [PATCH] Backport PrePlayerAttackEntityEvent
 
+
 diff --git a/src/main/java/net/minecraft/server/network/PlayerConnection.java b/src/main/java/net/minecraft/server/network/PlayerConnection.java
-index 6a330fedef502a79bd4334d11fdd63572f8be642..931014d45b52ffbe26fb31fe934593721f154214 100644
+index 71cdc9af5ae6dbad50f6aa2a1ed65ab536718c35..c07ce01ce604fe09414f409884ee9d385c5eaacc 100644
 --- a/src/main/java/net/minecraft/server/network/PlayerConnection.java
 +++ b/src/main/java/net/minecraft/server/network/PlayerConnection.java
-@@ -2415,7 +2415,17 @@ public class PlayerConnection implements PacketListenerPlayIn {
+@@ -2416,7 +2416,17 @@ public class PlayerConnection implements PacketListenerPlayIn {
                          return;
                      }
  

@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:16:35 +0200
 Subject: [PATCH] Backport PersistentDataContainer improvements
+
 
 diff --git a/src/main/java/org/bukkit/persistence/PersistentDataContainer.java b/src/main/java/org/bukkit/persistence/PersistentDataContainer.java
 index bf2a957be52d86d07d7d303c86bd3da5fe0a16c0..e776266ccbec65ea20a09d6836754b469ffcd4a6 100644

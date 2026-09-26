@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: NotCoded <66999075+not-coded@users.noreply.github.com>
+From: NotCoded <hello@notcoded.net>
 Date: Mon, 22 Jun 2026 19:21:59 +0200
 Subject: [PATCH] Bump ASM to 9.8 for modern Java support
+
 
 diff --git a/pom.xml b/pom.xml
 index 48495ad71339c142a62839824a98c02011645207..d65aa099f02d5954fd16ad9317349f9d77d53bf7 100644
