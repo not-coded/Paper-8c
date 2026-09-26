@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 16:21:59 +0200
+Subject: [PATCH] Deprecate shield blocking delay API
+
+
+diff --git a/src/main/java/org/bukkit/entity/LivingEntity.java b/src/main/java/org/bukkit/entity/LivingEntity.java
+index ccb81ceee74fff50ec3ed88ae0a41f790c40ae87..677f6c52f1f3fb98572f8b760f71ccb083c8f5b3 100644
+--- a/src/main/java/org/bukkit/entity/LivingEntity.java
++++ b/src/main/java/org/bukkit/entity/LivingEntity.java
+@@ -759,17 +759,21 @@ public interface LivingEntity extends Attributable, Damageable, ProjectileSource
+     void setArrowsStuck(int arrows);
+ 
+     /**
+      * Get the delay (in ticks) before blocking is effective for this entity
+      *
+      * @return Delay in ticks
++     * @deprecated Shield delay in CTS is immediate.
+      */
++    @Deprecated
+     int getShieldBlockingDelay();
+ 
+     /**
+      * Set the delay (in ticks) before blocking is effective for this entity
+      *
+      * @param delay Delay in ticks
++     * @deprecated Shield delay in CTS is immediate.
+      */
++    @Deprecated
+     void setShieldBlockingDelay(int delay);
+ 
+     /**

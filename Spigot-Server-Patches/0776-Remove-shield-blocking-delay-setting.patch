@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: notcoded <hello@notcoded.net>
+Date: Sat, 26 Sep 2026 17:41:14 +0200
+Subject: [PATCH] Remove shield blocking delay setting
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index dc4bd421ea36779342a35e82830a05fa68b96f7b..17860c9bf6b20955c7da0f788d327ba2ea2d32c9 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -409,11 +409,6 @@ public class PaperWorldConfig {
+         log("Disable Unloaded Chunk Enderpearl Exploit: " + (disableEnderpearlExploit ? "enabled" : "disabled"));
+     }
+ 
+-    public int shieldBlockingDelay = 5;
+-    private void shieldBlockingDelay() {
+-        shieldBlockingDelay = getInt("game-mechanics.shield-blocking-delay", 5);
+-    }
+-
+     public boolean scanForLegacyEnderDragon = true;
+     private void scanForLegacyEnderDragon() {
+         scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
+diff --git a/src/main/java/net/minecraft/world/entity/EntityLiving.java b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+index 62f29eb550f7e450ccaaec74406abe0249611f4c..3018ccec86e3c7265667161954205aa26dd4b99c 100644
+--- a/src/main/java/net/minecraft/world/entity/EntityLiving.java
++++ b/src/main/java/net/minecraft/world/entity/EntityLiving.java
+@@ -3796,14 +3796,5 @@ public abstract class EntityLiving extends Entity {
+         return result;
+     }
+ 
+-    public int shieldBlockingDelay = world.paperConfig.shieldBlockingDelay;
+-
+-    public int getShieldBlockingDelay() {
+-        return shieldBlockingDelay;
+-    }
+-
+-    public void setShieldBlockingDelay(int shieldBlockingDelay) {
+-        this.shieldBlockingDelay = shieldBlockingDelay;
+-    }
+     // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index 592dacf8cc924caac339a8810ba5b0d85448ed90..1bf7007d02fc2d0540a85f5acdc7f9c6d9bab1a0 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -789,13 +789,14 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+     }
+ 
+     @Override
++    @Deprecated
+     public int getShieldBlockingDelay() {
+-        return getHandle().getShieldBlockingDelay();
++        return 0;
+     }
+ 
+     @Override
++    @Deprecated
+     public void setShieldBlockingDelay(int delay) {
+-        getHandle().setShieldBlockingDelay(delay);
+     }
+ 
+     @Override
