@@ -190,9 +190,14 @@ index 0000000000000000000000000000000000000000..a4315961b7a465fb4872a4d67e7c26d4
 +
 +}
 diff --git a/src/main/resources/log4j2.xml b/src/main/resources/log4j2.xml
-index 8af159abd3d0cc94cf155fec5b384c42f69551bf..67da1aa7a21622fb231d19dede3775a282a4a12e 100644
+index 8af159abd3d0cc94cf155fec5b384c42f69551bf..8ef939a050fa668cf2d6b18b2bc592660553d21d 100644
 --- a/src/main/resources/log4j2.xml
 +++ b/src/main/resources/log4j2.xml
+@@ -1,3 +1,3 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+-<Configuration status="WARN" packages="com.mojang.util" shutdownHook="disable">
++<Configuration status="WARN" packages="com.mojang.util,io.papermc.paper.console" shutdownHook="disable">
+     <Appenders>
 @@ -6,21 +6,21 @@
          </Queue>
          <TerminalConsole name="TerminalConsole">
